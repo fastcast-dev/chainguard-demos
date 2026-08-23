@@ -45,6 +45,27 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Ensure kubectl
+        env:
+          KUBECTL_VERSION: v1.31.4
+        run: |
+          set -euo pipefail
+          if command -v kubectl >/dev/null 2>&1; then
+            echo "kubectl already present: $(command -v kubectl)"
+            exit 0
+          fi
+          ARCH="$(uname -m)"; case "${ARCH}" in
+            x86_64) ARCH=amd64 ;;
+            aarch64|arm64) ARCH=arm64 ;;
+          esac
+          mkdir -p "${RUNNER_TEMP}/bin"
+          cd "${RUNNER_TEMP}/bin"
+          curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl"
+          curl -fsSLO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl.sha256"
+          echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+          chmod +x kubectl
+          echo "${RUNNER_TEMP}/bin" >> "${GITHUB_PATH}"
+
       - name: Configure kubectl
         env:
           K3S_TOKEN: ${{ secrets.K3S_TOKEN }}
