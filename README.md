@@ -74,6 +74,10 @@ ARC runner scale sets named `k3s-dev` and `k3s-prod`, one in each cluster, runni
 Chainguard `actions-runner` image with `kubectl` added via
 [Custom Assembly](https://edu.chainguard.dev/chainguard/chainguard-images/features/ca-docs/custom-assembly/).
 
+> Note: add **both** `kubectl-1.36` and `kubectl-1.36-default` to the Custom Assembly
+> config — the versioned package installs `/usr/bin/kubectl-1.36`, and the `-default`
+> companion provides the unversioned `/usr/bin/kubectl` symlink the workflow calls.
+
 ## Local testing
 
 ```sh
