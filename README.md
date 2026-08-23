@@ -70,8 +70,9 @@ The ServiceAccount needs get/create/patch on `statefulsets`, `services`, and
 
 ### 2. Runners
 
-ARC runner scale sets named `k3s-dev` and `k3s-prod`, one in each cluster, with the
-default runner image (includes `kubectl`).
+ARC runner scale sets named `k3s-dev` and `k3s-prod`, one in each cluster, running the
+Chainguard `actions-runner` image with `kubectl` added via
+[Custom Assembly](https://edu.chainguard.dev/chainguard/chainguard-images/features/ca-docs/custom-assembly/).
 
 ## Local testing
 
