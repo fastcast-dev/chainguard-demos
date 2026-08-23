@@ -1,6 +1,6 @@
 # chainguard-demos
 
-Demo services built on [Chainguard Containers](https://images.chainguard.dev), pulled
+🐙 Demo services built on [Chainguard Containers](https://images.chainguard.dev), pulled
 from the internal mirror (`fastcast-dev.self-hosted.io/cgr/*`, no auth) and deployed to
 dev and prod k3s clusters by a hardened GitHub Actions pipeline.
 
