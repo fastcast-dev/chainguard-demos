@@ -48,8 +48,8 @@ jobs:
 
       - name: Configure kubectl
         env:
-          # Cluster tokens live in the K3S_DEV / K3S_PROD secrets
-          K3S_TOKEN: ${{ inputs.environment == 'prod' && secrets.K3S_PROD || secrets.K3S_DEV }}
+          # Cluster tokens live in K3S_DEV / K3S_PROD (secret or variable, org/repo/env level)
+          K3S_TOKEN: ${{ inputs.environment == 'prod' && (secrets.K3S_PROD || vars.K3S_PROD) || (secrets.K3S_DEV || vars.K3S_DEV) }}
           K3S_SERVER: ${{ vars.K3S_SERVER }}
         run: |
           set -euo pipefail
