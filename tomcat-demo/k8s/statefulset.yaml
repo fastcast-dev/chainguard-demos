@@ -55,8 +55,13 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 15
           volumeMounts:
+            # subPath materializes a real file instead of the ConfigMap's
+            # ..data symlink, which Tomcat refuses to serve (allowLinking is
+            # off by default). Content updates still roll via the
+            # content-hash annotation, so live propagation isn't needed.
             - name: webapp
-              mountPath: /usr/local/tomcat/webapps/ROOT
+              mountPath: /usr/local/tomcat/webapps/ROOT/index.html
+              subPath: index.html
               readOnly: true
             # Catalina needs these writable when the rootfs is read-only
             - name: temp
@@ -65,6 +70,8 @@ spec:
               mountPath: /usr/local/tomcat/work
             - name: logs
               mountPath: /usr/local/tomcat/logs
+            - name: conf-catalina
+              mountPath: /usr/local/tomcat/conf/Catalina
       volumes:
         - name: webapp
           configMap:
@@ -74,4 +81,6 @@ spec:
         - name: work
           emptyDir: {}
         - name: logs
+          emptyDir: {}
+        - name: conf-catalina
           emptyDir: {}
