@@ -1,0 +1,17 @@
+# Fronts nginx-demo-0. The pre-provisioned traefik Ingress routes
+# host {{ nginx_demo_ingress_host }} -> service nginx-demo:80, so this
+# service exposes 80 and maps to the container's unprivileged 8080.
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-demo
+  namespace: public
+  labels:
+    app: nginx-demo
+spec:
+  selector:
+    app: nginx-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

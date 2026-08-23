@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello from Chainguard × Tomcat 🐙🐈</title>
+  <style>
+    :root {
+      --ink: #26030f;
+      --panel: #3d0a1b;
+      --amber: #ffc26e;
+      --lav: #ffb2c9;
+      --mint: #7ff0c9;
+      --text: #ffeaef;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      background: radial-gradient(1200px 800px at 30% -10%, #581229 0%, var(--ink) 60%);
+      color: var(--text);
+    }
+    main { max-width: 720px; padding: 3rem 2rem; text-align: center; }
+    .duo { font-size: 4.5rem; }
+    .duo .cat { display: inline-block; animation: pounce 2.5s ease-in-out infinite; }
+    .duo .octo { display: inline-block; animation: pounce 2.5s ease-in-out infinite reverse; }
+    @keyframes pounce {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-10px); }
+    }
+    h1 { font-size: 1.8rem; margin: 0.5rem 0; }
+    h1 span { color: var(--amber); }
+    .tagline { color: var(--lav); margin-bottom: 2rem; }
+    .joke {
+      background: var(--panel);
+      border: 1px solid #6e2038;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin: 1rem 0;
+      text-align: left;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .joke .q { color: var(--amber); }
+    .joke .a { color: var(--mint); }
+    .links { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
+    .links a {
+      color: var(--ink);
+      background: var(--lav);
+      text-decoration: none;
+      padding: 0.6rem 1.1rem;
+      border-radius: 999px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+    .links a:hover { background: var(--amber); transform: translateY(-2px); }
+    footer { margin-top: 2.5rem; font-size: 0.75rem; color: #b87b8f; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="duo">
+      <span class="cat" role="img" aria-label="Tomcat">🐈</span>
+      <span role="img" aria-label="handshake">🤝</span>
+      <span class="octo" role="img" aria-label="Linky the Chainguard octopus">🐙</span>
+    </div>
+    <h1>Hello from <span>Chainguard × Tomcat</span>!</h1>
+    <p class="tagline">A cat and an octopus walk into a cluster…</p>
+
+    <div class="joke">
+      <div class="q">Q: How does Linky hug a Tomcat?</div>
+      <div class="a">A: Very carefully — with all eight arms, zero CVEs, and absolutely no shell access.</div>
+    </div>
+
+    <div class="joke">
+      <div class="q">Q: What did the auditor say to this container?</div>
+      <div class="a">A: Nothing. There was nothing to report. 🐈✅</div>
+    </div>
+
+    <div class="links">
+      <a href="https://images.chainguard.dev/directory/image/tomcat/versions">Tomcat Image</a>
+      <a href="https://edu.chainguard.dev">Chainguard Academy</a>
+      <a href="https://tomcat.apache.org">Apache Tomcat</a>
+    </div>
+
+    <footer>
+      served by a <strong>Chainguard tomcat</strong> container · catalina purring as uid 65532 ·
+      one very secure cat, guarded by one very thorough octopus
+    </footer>
+  </main>
+</body>
+</html>

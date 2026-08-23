@@ -1,0 +1,72 @@
+# nginx-demo — single-pod StatefulSet so the pod name is predictable (nginx-demo-0).
+# Content is mounted from the nginx-demo-html ConfigMap, published by the deploy
+# workflow from nginx-demo/html/. The Chainguard nginx image (via the internal
+# mirror) listens on 8080 (unprivileged) and runs as the nonroot `nginx` user.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: nginx-demo
+  namespace: public
+  labels:
+    app: nginx-demo
+spec:
+  serviceName: nginx-demo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-demo
+  template:
+    metadata:
+      labels:
+        app: nginx-demo
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: fastcast-dev.self-hosted.io/cgr/nginx:latest
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          volumeMounts:
+            - name: html
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            # nginx needs these two writable when the rootfs is read-only
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /var/lib/nginx/tmp
+      volumes:
+        - name: html
+          configMap:
+            name: nginx-demo-html
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}

@@ -1,0 +1,106 @@
+# Reusable single-environment deploy. Runs on the ARC runner scale set inside
+# the target k3s cluster (k3s-dev / k3s-prod), which ships kubectl by default.
+# Images are pulled by the cluster from the internal mirror
+# (fastcast-dev.self-hosted.io/cgr/*) — no registry auth required.
+#
+# Hardening applied here:
+#   - all actions pinned to full commit SHAs
+#   - top-level `permissions: {}`; the job requests only contents:read
+#   - checkout with persist-credentials disabled
+#   - kubeconfig is built in RUNNER_TEMP from the environment-scoped token,
+#     never written into the workspace
+name: Deploy environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: GitHub environment to deploy (dev or prod)
+        required: true
+        type: string
+      runner:
+        description: ARC runner scale set inside the target cluster
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ${{ inputs.runner }}
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      NAMESPACE: public
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Configure kubectl
+        env:
+          K3S_TOKEN: ${{ secrets.K3S_TOKEN }}
+          K3S_SERVER: ${{ vars.K3S_SERVER }}
+        run: |
+          set -euo pipefail
+          export KUBECONFIG="${RUNNER_TEMP}/kubeconfig"
+          touch "${KUBECONFIG}" && chmod 600 "${KUBECONFIG}"
+
+          # ARC runners live inside the target cluster, so default to the
+          # in-cluster API endpoint and its service-account CA bundle.
+          SERVER="${K3S_SERVER:-https://kubernetes.default.svc}"
+          SA_CA=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          if [[ -f "${SA_CA}" ]]; then
+            kubectl config set-cluster k3s --server="${SERVER}" \
+              --certificate-authority="${SA_CA}" --embed-certs=true
+          else
+            kubectl config set-cluster k3s --server="${SERVER}"
+          fi
+          kubectl config set-credentials deployer --token="${K3S_TOKEN}"
+          kubectl config set-context k3s --cluster=k3s --user=deployer --namespace="${NAMESPACE}"
+          kubectl config use-context k3s
+          echo "KUBECONFIG=${KUBECONFIG}" >> "${GITHUB_ENV}"
+
+          kubectl version
+          kubectl auth whoami || true
+
+      - name: Publish demo content
+        run: |
+          set -euo pipefail
+          kubectl create configmap nginx-demo-html \
+            --from-file=nginx-demo/html/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create configmap tomcat-demo-webapp \
+            --from-file=tomcat-demo/webapp/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy StatefulSets
+        run: kubectl apply -f nginx-demo/k8s/ -f tomcat-demo/k8s/
+
+      - name: Roll pods on content change
+        run: |
+          set -euo pipefail
+          # ConfigMap updates don't restart pods on their own; stamping a
+          # content hash on the pod template rolls the pod only when the
+          # served content actually changed.
+          NGINX_HASH="$(cat nginx-demo/html/* | sha256sum | cut -c1-12)"
+          TOMCAT_HASH="$(cat tomcat-demo/webapp/* | sha256sum | cut -c1-12)"
+          kubectl patch statefulset nginx-demo --type merge \
+            -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"demo.chainguard.dev/content-hash\":\"${NGINX_HASH}\"}}}}}"
+          kubectl patch statefulset tomcat-demo --type merge \
+            -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"demo.chainguard.dev/content-hash\":\"${TOMCAT_HASH}\"}}}}}"
+
+      - name: Wait for rollout
+        run: |
+          set -euo pipefail
+          kubectl rollout status statefulset/nginx-demo --timeout=180s
+          kubectl rollout status statefulset/tomcat-demo --timeout=180s
+          kubectl get pods -l 'app in (nginx-demo, tomcat-demo)' -o wide

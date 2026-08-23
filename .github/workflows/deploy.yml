@@ -1,0 +1,37 @@
+# Deploys the demos to the dev k3s cluster on every push to main,
+# then promotes to prod behind the `prod` environment's protection rules
+# (configure required reviewers on the prod environment in repo settings).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# No default token permissions anywhere; jobs opt in to the minimum they need.
+permissions: {}
+
+# One deploy at a time; queued pushes wait rather than interleave.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: dev
+      runner: k3s-dev
+    permissions:
+      contents: read
+    secrets: inherit
+
+  prod:
+    needs: dev
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: prod
+      runner: k3s-prod
+    permissions:
+      contents: read
+    secrets: inherit

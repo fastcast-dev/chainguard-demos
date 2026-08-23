@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello from Chainguard 🐙</title>
+  <style>
+    :root {
+      --ink: #0f0326;
+      --panel: #1b0a3d;
+      --violet: #7545fb;
+      --lav: #c3b2ff;
+      --mint: #7ff0c9;
+      --text: #efeaff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      background: radial-gradient(1200px 800px at 70% -10%, #2a1258 0%, var(--ink) 60%);
+      color: var(--text);
+    }
+    main {
+      max-width: 720px;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .linky {
+      font-size: 5rem;
+      display: inline-block;
+      animation: bob 3s ease-in-out infinite;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0) rotate(-4deg); }
+      50%      { transform: translateY(-12px) rotate(4deg); }
+    }
+    h1 { font-size: 2rem; margin: 0.5rem 0; }
+    h1 span { color: var(--mint); }
+    .tagline { color: var(--lav); margin-bottom: 2rem; }
+    .stats {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 2rem 0;
+    }
+    .stat {
+      background: var(--panel);
+      border: 1px solid #3a2470;
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      min-width: 150px;
+    }
+    .stat .num { font-size: 2rem; color: var(--mint); font-weight: bold; }
+    .stat .label { font-size: 0.75rem; color: var(--lav); }
+    .terminal {
+      background: #000;
+      border: 1px solid #3a2470;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      text-align: left;
+      font-size: 0.85rem;
+      margin: 2rem 0;
+      overflow-x: auto;
+    }
+    .terminal .prompt { color: var(--mint); }
+    .terminal .err { color: #ff7a9c; }
+    .terminal .comment { color: #8a7bb8; }
+    .links { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+    .links a {
+      color: var(--ink);
+      background: var(--lav);
+      text-decoration: none;
+      padding: 0.6rem 1.1rem;
+      border-radius: 999px;
+      font-weight: bold;
+      font-size: 0.85rem;
+      transition: transform 0.1s ease, background 0.1s ease;
+    }
+    .links a:hover { background: var(--mint); transform: translateY(-2px); }
+    footer { margin-top: 2.5rem; font-size: 0.75rem; color: #8a7bb8; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="linky" role="img" aria-label="Linky the Chainguard octopus">🐙</div>
+    <h1>Hello from <span>Chainguard</span>!</h1>
+    <p class="tagline">Linky says hi from a distroless nginx pod on k3s.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="num">0</div><div class="label">known CVEs</div></div>
+      <div class="stat"><div class="num">0</div><div class="label">shells included</div></div>
+      <div class="stat"><div class="num">∞</div><div class="label">days since apt-get</div></div>
+    </div>
+
+    <div class="terminal">
+      <div><span class="prompt">$</span> kubectl exec -it nginx-demo-0 -- sh</div>
+      <div class="err">error: exec: "sh": executable file not found in $PATH</div>
+      <div class="comment"># this is fine. no, really — it actually is fine. 🔥🐙🔥</div>
+    </div>
+
+    <div class="links">
+      <a href="https://images.chainguard.dev">Containers Directory</a>
+      <a href="https://edu.chainguard.dev">Chainguard Academy</a>
+      <a href="https://edu.chainguard.dev/open-source/wolfi/overview/">Wolfi</a>
+      <a href="https://console.chainguard.dev">Console</a>
+    </div>
+
+    <footer>
+      served by a <strong>Chainguard nginx</strong> container · running as nonroot ·
+      read-only rootfs · no shells were included in the making of this container
+    </footer>
+  </main>
+</body>
+</html>

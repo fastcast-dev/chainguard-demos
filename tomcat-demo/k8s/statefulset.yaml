@@ -1,0 +1,77 @@
+# tomcat-demo — single-pod StatefulSet so the pod name is predictable (tomcat-demo-0).
+# The ROOT webapp is mounted from the tomcat-demo-webapp ConfigMap, published by
+# the deploy workflow from tomcat-demo/webapp/. The Chainguard tomcat image (via
+# the internal mirror) has CATALINA_HOME=/usr/local/tomcat, listens on 8080, and
+# runs as uid 65532.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: tomcat-demo
+  namespace: public
+  labels:
+    app: tomcat-demo
+spec:
+  serviceName: tomcat-demo
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tomcat-demo
+  template:
+    metadata:
+      labels:
+        app: tomcat-demo
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: tomcat
+          image: fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          volumeMounts:
+            - name: webapp
+              mountPath: /usr/local/tomcat/webapps/ROOT
+              readOnly: true
+            # Catalina needs these writable when the rootfs is read-only
+            - name: temp
+              mountPath: /usr/local/tomcat/temp
+            - name: work
+              mountPath: /usr/local/tomcat/work
+            - name: logs
+              mountPath: /usr/local/tomcat/logs
+      volumes:
+        - name: webapp
+          configMap:
+            name: tomcat-demo-webapp
+        - name: temp
+          emptyDir: {}
+        - name: work
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
