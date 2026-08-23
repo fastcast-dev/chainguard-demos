@@ -58,11 +58,12 @@ Hardening checklist:
 
 ### 1. GitHub environments
 
-Create `dev` and `prod` environments (add required reviewers on `prod`), each with:
+Create `dev` and `prod` environments (add required reviewers on `prod`), plus:
 
 | Name | Kind | Value |
 |---|---|---|
-| `K3S_TOKEN` | secret | ServiceAccount token with rights in the `public` namespace of that cluster |
+| `K3S_DEV` | secret | ServiceAccount token with rights in the `public` namespace of the dev cluster |
+| `K3S_PROD` | secret | Same, for the prod cluster |
 | `K3S_SERVER` | variable (optional) | API server URL; defaults to `https://kubernetes.default.svc` since ARC runners run in-cluster |
 
 The ServiceAccount needs get/create/patch on `statefulsets`, `services`, and

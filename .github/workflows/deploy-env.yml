@@ -48,10 +48,15 @@ jobs:
 
       - name: Configure kubectl
         env:
-          K3S_TOKEN: ${{ secrets.K3S_TOKEN }}
+          # Cluster tokens live in the K3S_DEV / K3S_PROD secrets
+          K3S_TOKEN: ${{ inputs.environment == 'prod' && secrets.K3S_PROD || secrets.K3S_DEV }}
           K3S_SERVER: ${{ vars.K3S_SERVER }}
         run: |
           set -euo pipefail
+          if [[ -z "${K3S_TOKEN}" ]]; then
+            echo "::error::cluster token secret (K3S_DEV / K3S_PROD) is empty or not visible to this workflow"
+            exit 1
+          fi
           export KUBECONFIG="${RUNNER_TEMP}/kubeconfig"
           touch "${KUBECONFIG}" && chmod 600 "${KUBECONFIG}"
 
