@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   digestabot:
-    runs-on: ubuntu-latest
+    runs-on: k3s-dev # ARC runner; digestabot needs no cluster access, just network + OIDC
     timeout-minutes: 15
     permissions:
       contents: write # push the update branch
