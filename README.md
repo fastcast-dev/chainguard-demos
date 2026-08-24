@@ -29,8 +29,8 @@ honor that contract:
 
 | Ingress backend | Service | Service port | Container port | Image |
 |---|---|---|---|---|
-| `nginx-demo:80` | `nginx-demo` | 80 | 8080 (Chainguard nginx is unprivileged) | `…/cgr/nginx:latest` |
-| `tomcat-demo:8080` | `tomcat-demo` | 8080 | 8080 | `…/cgr/tomcat:10-jdk11` |
+| `nginx-demo:80` | `nginx-demo` | 80 | 8080 (Chainguard nginx is unprivileged) | `…/cgr/nginx:1.31.4` (patch stream) |
+| `tomcat-demo:8080` | `tomcat-demo` | 8080 | 8080 | `…/cgr/tomcat:10-jdk11` (major stream) |
 
 Page content is published as ConfigMaps (`nginx-demo-html`, `tomcat-demo-webapp`) by the
 workflow, and the pod template is stamped with a content hash so pods only roll when the
