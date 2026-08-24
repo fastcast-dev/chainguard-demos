@@ -33,10 +33,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # Assumable identity (not a credential — just an ID): Chainguard verifies
+      # this job's OIDC token against the identity's repo/ref binding and grants
+      # registry.pull on max.bern. Nothing long-lived is stored in GitHub.
       - name: Authenticate to Chainguard (keyless OIDC)
         uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28 # v0.5.1
         with:
-          identity: ${{ secrets.CHAINGUARD_IDENTITY }}
+          identity: ${{ vars.CHAINGUARD_IDENTITY }}
 
       # digestabot installs crane into ~/.local/bin and runs `crane version`
       # in the same step; GitHub-hosted images have that dir on PATH already,
