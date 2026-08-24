@@ -27,7 +27,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: tomcat
-          image: fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11
+          # digest kept current by digestabot (hourly)
+          image: fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11@sha256:1105a671c8f6805d2e98552de685b4f3c2cb9400f0e054921e030141533d5741
           ports:
             - name: http
               containerPort: 8080

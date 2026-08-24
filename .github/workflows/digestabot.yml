@@ -1,0 +1,50 @@
+# Hourly digest bump: digestabot re-resolves every image@sha256 reference and
+# opens a PR when a tag has moved to a new digest.
+#
+# The manifests/Dockerfiles reference the internal mirror
+# (fastcast-dev.self-hosted.io/cgr/*); registry-map points the digest lookups
+# at the upstream cgr.dev/max.bern catalog, authenticated keylessly via a
+# Chainguard assumable identity (setup-chainctl + OIDC) — no registry
+# credentials stored in GitHub.
+name: digestabot
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: digestabot
+  cancel-in-progress: true
+
+jobs:
+  digestabot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # push the update branch
+      pull-requests: write # open the digest-bump PR
+      id-token: write # OIDC: chainctl assumable identity + gitsign commit signing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+
+      - name: Authenticate to Chainguard (keyless OIDC)
+        uses: chainguard-dev/setup-chainctl@2cddd35a2f120d9973e58094dc6878c93cf58c28 # v0.5.1
+        with:
+          identity: ${{ secrets.CHAINGUARD_IDENTITY }}
+
+      - name: Update image digests
+        uses: chainguard-dev/digestabot@33d0b78e580aa0c83fe188eb3dfad6611b662479 # v1.3.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          include-files: "*.yaml,*.yml,Dockerfile*"
+          registry-map: fastcast-dev.self-hosted.io/cgr/=cgr.dev/max.bern/
+          signoff: true
+          labels-for-pr: automated pr
+          title-for-pr: "chore: update image digests"
+          commit-message: "chore: update image digests"

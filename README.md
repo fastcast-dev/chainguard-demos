@@ -54,6 +54,15 @@ Hardening checklist:
 - the images themselves: distroless, nonroot, read-only rootfs, all capabilities
   dropped, `seccompProfile: RuntimeDefault`
 
+## Digest pinning
+
+All image references are pinned by digest (`tag@sha256:…`).
+[digestabot](https://github.com/chainguard-dev/digestabot) runs hourly and opens a PR
+whenever a pinned tag has moved to a new digest. Files keep the mirror prefix; digest
+lookups are mapped to the upstream catalog (`fastcast-dev.self-hosted.io/cgr/` →
+`cgr.dev/max.bern/`) and authenticated keylessly via a Chainguard assumable identity
+(`CHAINGUARD_IDENTITY` secret + OIDC — no registry credentials in GitHub).
+
 ## One-time setup
 
 ### 1. GitHub environments
