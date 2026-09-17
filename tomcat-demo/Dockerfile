@@ -6,7 +6,7 @@
 # The Chainguard tomcat image (via the internal mirror, no auth) is a drop-in
 # replacement for the official image: CATALINA_HOME=/usr/local/tomcat, ships an
 # empty webapps/, runs as uid 65532.
-FROM fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11@sha256:5e022d3631dcf08bfbb24f54960adccef86cb09aa6e6e215cccf77981bf19c61
+FROM fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11@sha256:9e81ed25b24b03f11e974eef11cd73dc8ef7306d98dff299dd3befab2040d0ef
 
 COPY webapp/ /usr/local/tomcat/webapps/ROOT/
 
