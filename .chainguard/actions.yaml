@@ -1,0 +1,17 @@
+# Chainguard Guardener — Hardened Actions.
+# https://edu.chainguard.dev/chainguard/guardener/github/actions-security/
+#
+# Same idea as digestabot for images, but for the workflows themselves:
+# the Guardener keeps `uses:` refs on Chainguard hardened, SHA-pinned
+# equivalents (github.com/chainguard-actions) via a maintained migration PR.
+# Requires the Guardener GitHub App installed on the org and the Actions
+# entitlement (`chainctl actions entitlements create`).
+enabled: true # inline PR recommendations on workflow changes
+migrate:
+  enabled: true
+  period: "24h" # daily migration PR refresh (24h is the minimum)
+  # chainguard-dev first-party actions (setup-chainctl, digestabot) have no
+  # hardened mirror and are already Chainguard-maintained.
+  ignore:
+    actions:
+      - "chainguard-dev/*"

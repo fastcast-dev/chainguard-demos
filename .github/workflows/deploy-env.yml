@@ -5,7 +5,8 @@
 # (fastcast-dev.self-hosted.io/cgr/*) — no registry auth required.
 #
 # Hardening applied here:
-#   - all actions pinned to full commit SHAs
+#   - third-party actions replaced with Chainguard hardened equivalents
+#     (github.com/chainguard-actions), all pinned to full commit SHAs
 #   - top-level `permissions: {}`; the job requests only contents:read
 #   - checkout with persist-credentials disabled
 #   - kubeconfig is built in RUNNER_TEMP from the environment-scoped token,
@@ -42,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: chainguard-actions/actions-checkout@1f8e63dffdffd00f53e08b42f3ec278c5dfed4a2 # v7.0.1
         with:
           persist-credentials: false
 
