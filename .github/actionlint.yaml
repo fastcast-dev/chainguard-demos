@@ -3,3 +3,9 @@ self-hosted-runner:
   labels:
     - k3s-dev
     - k3s-prod
+    - deployments-dev
+    - deployments-prod
+    - python-dev
+    - python-prod
+    - k3s-dev-default
+    - k3s-prod-default
