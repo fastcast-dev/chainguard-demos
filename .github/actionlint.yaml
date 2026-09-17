@@ -1,0 +1,5 @@
+# ARC runner scale sets living inside each k3s cluster.
+self-hosted-runner:
+  labels:
+    - k3s-dev
+    - k3s-prod
