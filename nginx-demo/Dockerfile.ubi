@@ -1,0 +1,15 @@
+# Local-only comparison image for grype scans — never pushed/published.
+#
+#   docker build -t nginx-demo:ubi -f nginx-demo/Dockerfile.ubi nginx-demo/
+#   docker run -p 8080:8080 nginx-demo:ubi
+#   grype nginx-demo:ubi
+#
+# Red Hat UBI 9 nginx (public registry, no auth). Serves the same html/ as the
+# Chainguard-based Dockerfile. The UBI image runs as uid 1001 with workdir
+# /opt/app-root/src as its docroot and listens on unprivileged 8080.
+FROM registry.access.redhat.com/ubi9/nginx-126:latest
+
+COPY html/ .
+
+EXPOSE 8080
+CMD ["nginx", "-g", "daemon off;"]

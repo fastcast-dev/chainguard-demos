@@ -5,8 +5,9 @@
 # from a third party at job time — is needed at all.
 #
 # Every `uses:` here is a Chainguard hardened action (github.com/chainguard-actions),
-# SHA-pinned. Each job logs the hardening applied per action and appends a
-# summary table to the workflow run page.
+# SHA-pinned. Each job ends with the hardening-summary composite action, which
+# parses this workflow's own pins and renders Chainguard's published
+# HARDENING.md / source.json for each action into the run summary.
 #
 # Swap the -dev labels for -prod to run the same jobs in the prod cluster.
 name: Toolchain versions (Custom Assembly runners)
@@ -16,6 +17,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/toolchain-versions.yml"
+      - ".github/actions/hardening-summary/**"
 
 permissions: {}
 
@@ -32,16 +34,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Hardening applied to this job's actions
-        run: |
-          echo "::group::chainguard-actions/actions-checkout@v7.0.1"
-          echo "Drop-in hardened mirror of actions/checkout, pinned to commit 1f8e63d."
-          echo "- immutable SHA pin: upstream tag moves cannot inject code into this job"
-          echo "- blocks fork checkout under pull_request_target/workflow_run unless"
-          echo "  allow-unsafe-pr-checkout is set (pwn-request guard)"
-          echo "- persist-credentials disabled: no token left in .git/config"
-          echo "::endgroup::"
-
       - name: Show toolchain versions (baked into the runner image)
         run: |
           set -euo pipefail
@@ -56,28 +48,24 @@ jobs:
           go version
           echo "::endgroup::"
 
-      - name: Hardening summary
+      - name: Toolchain summary
         run: |
           set -euo pipefail
           cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
-          ## Hardening summary — ${GITHUB_JOB}
-
-          **Runner:** \`k3s-dev\` — Chainguard \`actions-runner-pyjdkgo\` (Custom Assembly).
-          Python, JDK, and Go ship inside the hardened runner image: zero toolchain
-          downloads at job time, zero setup-* actions in the supply chain.
-
           | Toolchain | Version | Provenance |
           |---|---|---|
           | Python | \`$(python3 --version 2>&1)\` | baked into runner image (cgr.dev) |
           | Java | \`$(java -version 2>&1 | head -1)\` | baked into runner image (cgr.dev) |
           | Go | \`$(go version)\` | baked into runner image (cgr.dev) |
-
-          | Action used | Pin | Hardening |
-          |---|---|---|
-          | \`chainguard-actions/actions-checkout\` | \`1f8e63d\` (v7.0.1) | Chainguard hardened mirror, SHA-pinned, pwn-request guard, credentials not persisted |
-
-          Workflow-level: \`permissions: {}\` top level, job requests \`contents: read\` only.
           EOF
+
+      - name: Hardening summary
+        uses: ./.github/actions/hardening-summary
+        with:
+          runner-notes: >-
+            **Runner:** `k3s-dev` — Chainguard `actions-runner-pyjdkgo` (Custom Assembly).
+            Python, JDK, and Go ship inside the hardened runner image: zero toolchain
+            downloads at job time, zero setup-* actions in the supply chain.
 
   python-only:
     name: Python (python-dev)
@@ -97,25 +85,21 @@ jobs:
           python3 --version
           pip --version 2>/dev/null || python3 -m pip --version || true
 
-      - name: Hardening summary
+      - name: Toolchain summary
         run: |
           set -euo pipefail
           cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
-          ## Hardening summary — ${GITHUB_JOB}
-
-          **Runner:** \`python-dev\` — Chainguard \`actions-runner-py3\` (Custom Assembly).
-          Single-toolchain image: the smallest possible CI surface for Python jobs.
-
           | Toolchain | Version | Provenance |
           |---|---|---|
           | Python | \`$(python3 --version 2>&1)\` | baked into runner image (cgr.dev) |
-
-          | Action used | Pin | Hardening |
-          |---|---|---|
-          | \`chainguard-actions/actions-checkout\` | \`1f8e63d\` (v7.0.1) | Chainguard hardened mirror, SHA-pinned, pwn-request guard, credentials not persisted |
-
-          Workflow-level: \`permissions: {}\` top level, job requests \`contents: read\` only.
           EOF
+
+      - name: Hardening summary
+        uses: ./.github/actions/hardening-summary
+        with:
+          runner-notes: >-
+            **Runner:** `python-dev` — Chainguard `actions-runner-py3` (Custom Assembly).
+            Single-toolchain image: the smallest possible CI surface for Python jobs.
 
   k8s-tools:
     name: Deployment tooling (deployments-dev)
@@ -142,23 +126,19 @@ jobs:
             fi
           done
 
-      - name: Hardening summary
+      - name: Toolchain summary
         run: |
           set -euo pipefail
           cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
-          ## Hardening summary — ${GITHUB_JOB}
-
-          **Runner:** \`deployments-dev\` — Chainguard \`actions-runner-k8s-tools\` (Custom Assembly).
-          Deploy tooling ships in the runner image — the same posture deploy-env.yml
-          relies on: no curl-to-bash installs, no unpinned marketplace setup actions.
-
           | Toolchain | Version | Provenance |
           |---|---|---|
           | kubectl | \`$(kubectl version --client -o json | grep gitVersion | head -1 | tr -d ' ",' | cut -d: -f2)\` | baked into runner image (cgr.dev) |
-
-          | Action used | Pin | Hardening |
-          |---|---|---|
-          | \`chainguard-actions/actions-checkout\` | \`1f8e63d\` (v7.0.1) | Chainguard hardened mirror, SHA-pinned, pwn-request guard, credentials not persisted |
-
-          Workflow-level: \`permissions: {}\` top level, job requests \`contents: read\` only.
           EOF
+
+      - name: Hardening summary
+        uses: ./.github/actions/hardening-summary
+        with:
+          runner-notes: >-
+            **Runner:** `deployments-dev` — Chainguard `actions-runner-k8s-tools` (Custom Assembly).
+            Deploy tooling ships in the runner image — the same posture deploy-env.yml
+            relies on: no curl-to-bash installs, no unpinned marketplace setup actions.
