@@ -1,0 +1,123 @@
+# Repo-local composite action: renders a hardening audit trail for the
+# running workflow. It parses the workflow's own `uses:` lines, and for every
+# chainguard-actions mirror fetches source.json and HARDENING.md at the exact
+# pinned ref, so the summary is derived from the pins in force — it cannot
+# drift when a pin is bumped, and the hardening claims are Chainguard's own
+# published report rather than hand-written text.
+name: Hardening summary
+description: >-
+  Parse this workflow's action pins and render each Chainguard hardened
+  action's HARDENING.md and source.json into the job summary.
+inputs:
+  runner-notes:
+    description: Markdown describing the runner/image context, shown atop the summary
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Render hardening summary
+      shell: bash
+      env:
+        RUNNER_NOTES: ${{ inputs.runner-notes }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+
+        if ! command -v curl >/dev/null; then
+          echo "::warning::curl not available on this runner; skipping hardening summary"
+          exit 0
+        fi
+
+        # The workflow file that invoked this job, relative to the workspace.
+        wf="${GITHUB_WORKFLOW_REF#"${GITHUB_REPOSITORY}"/}"
+        wf="${wf%@*}"
+
+        # Raw file from a chainguard-actions repo at an exact ref; empty on 404.
+        # Falls back to unauthenticated if this repo's token is rejected.
+        api() {
+          curl -fsSL --retry 2 \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.raw" \
+            "https://api.github.com/repos/chainguard-actions/$1/contents/$2?ref=$3" 2>/dev/null \
+          || curl -fsSL --retry 2 -H "Accept: application/vnd.github.raw" \
+            "https://api.github.com/repos/chainguard-actions/$1/contents/$2?ref=$3" 2>/dev/null \
+          || true
+        }
+
+        # Pull a string field out of the flat source.json without jq
+        # (not guaranteed on every runner image).
+        json_field() {
+          grep -oE "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+            | head -1 | sed -E 's/.*:[[:space:]]*"([^"]*)"/\1/'
+        }
+
+        {
+          echo "## Hardening summary — ${GITHUB_JOB}"
+          echo
+          if [[ -n "${RUNNER_NOTES}" ]]; then
+            echo "${RUNNER_NOTES}"
+            echo
+          fi
+          echo "| Action | Pin | Tag | Upstream source | Harden agent | Report |"
+          echo "|---|---|---|---|---|---|"
+        } >> "${GITHUB_STEP_SUMMARY}"
+
+        details=""
+        while IFS= read -r ref; do
+          [[ -n "${ref}" ]] || continue
+          case "${ref}" in
+            chainguard-actions/*@*)
+              rest="${ref#chainguard-actions/}"
+              repo="${rest%%@*}"
+              sha="${rest#*@}"
+
+              src="$(api "${repo}" source.json "${sha}")"
+              if [[ -n "${src}" ]]; then
+                tag="$(printf '%s' "${src}" | json_field version)"
+                upstream="$(printf '%s' "${src}" | json_field owner)/$(printf '%s' "${src}" | json_field repo)"
+                up_sha="$(printf '%s' "${src}" | json_field commit_sha)"
+                agent="v$(printf '%s' "${src}" | json_field harden_agent_version)"
+                policy="$(printf '%s' "${src}" | json_field policy_sha)"
+                provenance="\`${upstream}@${up_sha:0:7}\`"
+                agent_cell="${agent} (policy \`${policy:0:7}\`)"
+              else
+                tag="?"
+                provenance="no source.json at this ref"
+                agent_cell="?"
+              fi
+
+              hmd="$(api "${repo}" HARDENING.md "${sha}")"
+              if [[ -n "${hmd}" ]]; then
+                verdict="$(printf '%s' "${hmd}" | grep -oE '[0-9]+ finding\(s\)[^.]*iteration\(s\)' | head -1 || true)"
+                verdict="${verdict:-report present}"
+                details+="<details><summary>HARDENING.md — ${repo}@${tag} (${sha:0:7})</summary>"$'\n\n'"${hmd}"$'\n\n'"</details>"$'\n\n'
+              else
+                verdict="no HARDENING.md at this ref"
+              fi
+
+              echo "| \`chainguard-actions/${repo}\` | \`${sha:0:7}\` | ${tag} | ${provenance} | ${agent_cell} | ${verdict} |" >> "${GITHUB_STEP_SUMMARY}"
+
+              echo "::group::chainguard-actions/${repo}@${tag} — ${verdict}"
+              printf '%s\n' "${hmd:-<no HARDENING.md at this ref>}"
+              echo "::endgroup::"
+              ;;
+            ./*)
+              echo "| \`${ref}\` | — | — | this repository | — | local composite action |" >> "${GITHUB_STEP_SUMMARY}"
+              ;;
+            *)
+              echo "| \`${ref}\` | — | — | — | — | not a chainguard-actions mirror |" >> "${GITHUB_STEP_SUMMARY}"
+              ;;
+          esac
+        done < <(sed -nE 's/^[[:space:]-]*uses:[[:space:]]*([^[:space:]#]+).*/\1/p' "${wf}" | sort -u)
+
+        {
+          echo
+          printf '%s' "${details}"
+          echo "> **Note:** baseline transforms (the licensing shim, added safety inputs such as"
+          echo "> \`allow-unsafe-pr-checkout\`) are applied pipeline-wide and may not appear as"
+          echo "> findings in HARDENING.md. For the full delta, diff the pinned tag against the"
+          echo "> upstream commit recorded in \`source.json\`."
+          echo
+          echo "Workflow-level posture: \`permissions: {}\` at top level; this job requests \`contents: read\` only."
+        } >> "${GITHUB_STEP_SUMMARY}"

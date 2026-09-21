@@ -5,8 +5,13 @@
 # where their supply-chain risk normally lives. Here every setup action is the
 # Chainguard hardened mirror (github.com/chainguard-actions), SHA-pinned.
 #
+# The job ends with the hardening-summary composite action, which parses this
+# workflow's own pins and renders Chainguard's published HARDENING.md /
+# source.json for each action into the run summary — the audit trail comes
+# from the catalog itself, not hand-written claims.
+#
 # Contrast with toolchain-versions.yml: on the Custom Assembly runners none of
-# these steps exist because the toolchains are baked into the runner image.
+# these setup steps exist because the toolchains are baked into the runner image.
 name: Hardened setup actions (bare default runner)
 
 on:
@@ -14,6 +19,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/hardened-setup-actions.yml"
+      - ".github/actions/hardening-summary/**"
 
 permissions: {}
 
@@ -26,6 +32,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout (Chainguard hardened)
+        # uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (upstream)
         uses: chainguard-actions/actions-checkout@1f8e63dffdffd00f53e08b42f3ec278c5dfed4a2 # v7.0.1
         with:
           persist-credentials: false
@@ -39,39 +46,23 @@ jobs:
           done
 
       - name: Setup Java (Chainguard hardened)
+        # uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1 (upstream)
         uses: chainguard-actions/actions-setup-java@9f7867fb15bac2c9fb673542f7f98d7448fd0a2b # v6.0.1
         with:
           distribution: temurin
           java-version: "21"
 
       - name: Setup Python (Chainguard hardened)
+        # uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 (upstream)
         uses: chainguard-actions/actions-setup-python@7a645df7de98e1f15c6cfe20f52eb2f254e62cc9 # v7.0.0
         with:
           python-version: "3.13"
 
       - name: Setup Go (Chainguard hardened)
+        # uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0 (upstream)
         uses: chainguard-actions/actions-setup-go@cfd6917d3c2c59d1f1e5bdf35a2f69269adff2e8 # v7.0.0
         with:
           go-version: stable
-
-      - name: Hardening applied to this job's actions
-        run: |
-          echo "::group::chainguard-actions/actions-checkout@v7.0.1 (1f8e63d)"
-          echo "Hardened mirror of actions/checkout: immutable SHA pin, pwn-request"
-          echo "guard on pull_request_target/workflow_run, credentials not persisted."
-          echo "::endgroup::"
-          echo "::group::chainguard-actions/actions-setup-java@v6.0.1 (9f7867f)"
-          echo "Hardened mirror of actions/setup-java: same inputs/outputs, reviewed"
-          echo "and rebuilt by Chainguard, immutable SHA pin."
-          echo "::endgroup::"
-          echo "::group::chainguard-actions/actions-setup-python@v7.0.0 (7a645df)"
-          echo "Hardened mirror of actions/setup-python: same inputs/outputs, reviewed"
-          echo "and rebuilt by Chainguard, immutable SHA pin."
-          echo "::endgroup::"
-          echo "::group::chainguard-actions/actions-setup-go@v7.0.0 (cfd6917)"
-          echo "Hardened mirror of actions/setup-go: same inputs/outputs, reviewed"
-          echo "and rebuilt by Chainguard, immutable SHA pin."
-          echo "::endgroup::"
 
       - name: Show installed toolchain versions
         run: |
@@ -80,29 +71,22 @@ jobs:
           python3 --version
           go version
 
-      - name: Hardening summary
+      - name: Toolchain summary
         run: |
           set -euo pipefail
           cat >> "${GITHUB_STEP_SUMMARY}" <<EOF
-          ## Hardening summary — ${GITHUB_JOB}
-
-          **Runner:** \`k3s-dev-default\` — stock \`ghcr.io/actions/actions-runner\`, no toolchains.
-          Toolchains were installed at job time by Chainguard hardened setup actions.
-
           | Toolchain | Version | Provenance |
           |---|---|---|
           | Java | \`$(java -version 2>&1 | head -1)\` | chainguard-actions/actions-setup-java |
           | Python | \`$(python3 --version 2>&1)\` | chainguard-actions/actions-setup-python |
           | Go | \`$(go version)\` | chainguard-actions/actions-setup-go |
-
-          | Action used | Pin | Hardening |
-          |---|---|---|
-          | \`actions-checkout\` | \`1f8e63d\` (v7.0.1) | SHA-pinned hardened mirror, pwn-request guard, credentials not persisted |
-          | \`actions-setup-java\` | \`9f7867f\` (v6.0.1) | SHA-pinned hardened mirror of actions/setup-java |
-          | \`actions-setup-python\` | \`7a645df\` (v7.0.0) | SHA-pinned hardened mirror of actions/setup-python |
-          | \`actions-setup-go\` | \`cfd6917\` (v7.0.0) | SHA-pinned hardened mirror of actions/setup-go |
-
-          Workflow-level: \`permissions: {}\` top level, job requests \`contents: read\` only.
-          On the Custom Assembly runners (see *Toolchain versions* workflow) all three
-          setup steps disappear — the toolchains ship inside the hardened runner image.
           EOF
+
+      - name: Hardening summary
+        uses: ./.github/actions/hardening-summary
+        with:
+          runner-notes: >-
+            **Runner:** `k3s-dev-default` — stock `ghcr.io/actions/actions-runner`, no toolchains.
+            Toolchains were installed at job time by Chainguard hardened setup actions.
+            On the Custom Assembly runners (see *Toolchain versions* workflow) all three
+            setup steps disappear — the toolchains ship inside the hardened runner image.
