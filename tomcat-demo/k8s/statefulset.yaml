@@ -28,7 +28,7 @@ spec:
       containers:
         - name: tomcat
           # digest kept current by digestabot (hourly)
-          image: fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11@sha256:f7a1129efed17adb6651c091f26fc6266ebbc0cd8b188a62d19826c2f64694da
+          image: fastcast-dev.self-hosted.io/cgr/tomcat:10-jdk11@sha256:c3304c563f873133cd701f58cfb23c480a37acc1f2fb32439144cd4e0115c481
           ports:
             - name: http
               containerPort: 8080
