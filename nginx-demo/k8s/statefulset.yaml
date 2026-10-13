@@ -26,8 +26,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nginx
-          # patch-pinned; digest kept current by digestabot (hourly)
-          image: fastcast-dev.self-hosted.io/cgr/nginx:1.31.4@sha256:9809cbf958d9fe24e3bc3e57eead939642c9ae1af9dd0eacaa3d5237af0036e6
+          # minor-stream (1.31.x); digest kept current by digestabot (hourly)
+          image: fastcast-dev.self-hosted.io/cgr/nginx:1.31@sha256:4d28bb935112fdab6ee87ef7b21eef5f47313e160806316be19262a9228132a5
           ports:
             - name: http
               containerPort: 8080
