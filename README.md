@@ -29,7 +29,7 @@ honor that contract:
 
 | Ingress backend | Service | Service port | Container port | Image |
 |---|---|---|---|---|
-| `nginx-demo:80` | `nginx-demo` | 80 | 8080 (Chainguard nginx is unprivileged) | `…/cgr/nginx:1.31.4` (patch stream) |
+| `nginx-demo:80` | `nginx-demo` | 80 | 8080 (Chainguard nginx is unprivileged) | `…/cgr/nginx:1.31` (minor stream) |
 | `tomcat-demo:8080` | `tomcat-demo` | 8080 | 8080 | `…/cgr/tomcat:10-jdk11` (major stream) |
 
 Page content is published as ConfigMaps (`nginx-demo-html`, `tomcat-demo-webapp`) by the
