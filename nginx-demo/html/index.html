@@ -81,6 +81,19 @@
       transition: transform 0.1s ease, background 0.1s ease;
     }
     .links a:hover { background: var(--mint); transform: translateY(-2px); }
+    .image-info {
+      background: var(--panel);
+      border: 1px solid #3a2470;
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0 2rem;
+      text-align: left;
+      font-size: 0.8rem;
+      color: var(--lav);
+    }
+    .image-info code { color: var(--mint); word-break: break-all; }
+    .image-info summary { cursor: pointer; color: var(--text); }
+    .image-info ul { columns: 2; padding-left: 1.25rem; margin: 0.75rem 0 0; }
     footer { margin-top: 2.5rem; font-size: 0.75rem; color: #8a7bb8; }
   </style>
 </head>
@@ -95,6 +108,17 @@
       <div class="stat"><div class="num">0</div><div class="label">shells included</div></div>
       <div class="stat"><div class="num">∞</div><div class="label">days since apt-get</div></div>
     </div>
+
+    <div class="stats">
+      <div class="stat"><div class="num" id="main-version">…</div><div class="label" id="main-label">nginx version</div></div>
+      <div class="stat"><div class="num" id="package-count">…</div><div class="label">packages in the image</div></div>
+    </div>
+
+    <details class="image-info" id="image-info" hidden>
+      <summary>what's inside: <code id="image-ref"></code></summary>
+      <div>built <span id="image-created"></span> · <span id="image-platform"></span></div>
+      <ul id="package-list"></ul>
+    </details>
 
     <div class="terminal">
       <div><span class="prompt">$</span> kubectl exec -it nginx-demo-0 -- sh</div>
@@ -114,5 +138,38 @@
       read-only rootfs · no shells were included in the making of this container
     </footer>
   </main>
+  <script>
+    // image-info.json is generated from the deployed image's own apk
+    // database (scripts/image-info.sh) and kept in step with its digest.
+    fetch("image-info.json", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((info) => {
+        const $ = (id) => document.getElementById(id);
+        const pkgs = info.packages || [];
+        const ver = (p) => p.version.replace(/-r\d+$/, "");
+        if (info.main_package) {
+          $("main-version").textContent = ver(info.main_package);
+          $("main-label").textContent = info.main_package.name + " version";
+        }
+        $("package-count").textContent = info.package_count;
+        const jre = pkgs.find((p) => /^openjdk-\d+-jre$/.test(p.name));
+        if (jre && $("java-version")) $("java-version").textContent = ver(jre);
+        $("image-ref").textContent = info.image.replace(/@sha256:(\w{12})\w+$/, "@sha256:$1…");
+        $("image-created").textContent = info.created ? new Date(info.created).toUTCString() : "unknown";
+        $("image-platform").textContent = info.platform;
+        for (const p of pkgs) {
+          const li = document.createElement("li");
+          li.textContent = p.name + " " + p.version;
+          $("package-list").appendChild(li);
+        }
+        $("image-info").hidden = false;
+      })
+      .catch(() => {
+        for (const id of ["main-version", "java-version", "package-count"]) {
+          const el = document.getElementById(id);
+          if (el) el.textContent = "?";
+        }
+      });
+  </script>
 </body>
 </html>

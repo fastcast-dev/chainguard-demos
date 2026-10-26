@@ -1,5 +1,16 @@
-# Hourly digest bump: digestabot re-resolves every image@sha256 reference and
-# opens a PR when a tag has moved to a new digest.
+# Hourly digest bump, end to end with no human in the loop:
+#
+#   1. digestabot re-resolves every image@sha256 reference and opens (or
+#      refreshes) the update-digests PR when a tag has moved to a new digest.
+#   2. image-info.json for each page is regenerated from the new images and
+#      pushed onto the same PR, so the version and package count shown on the
+#      site always match what's deployed.
+#   3. auto-merge is enabled on the PR: GitHub merges it once the required
+#      Chainguard Checks (.chainguard/ci.yaml) pass, never before.
+#   4. reconcile-deploy waits for the merge and dispatches deploy.yml. A merge
+#      made with GITHUB_TOKEN fires no `push` event, so deploy.yml would never
+#      see it otherwise. It also runs every hour, so anything merged that way
+#      (Guardener PRs, a merge that outlived the wait) still deploys.
 #
 # The manifests/Dockerfiles reference the internal mirror
 # (fastcast-dev.self-hosted.io/cgr/*); registry-map points the digest lookups
@@ -19,14 +30,20 @@ concurrency:
   group: digestabot
   cancel-in-progress: true
 
+env:
+  REGISTRY_MAP: fastcast-dev.self-hosted.io/cgr/=cgr.dev/max.bern/
+  PR_BRANCH: update-digests
+
 jobs:
   digestabot:
     runs-on: k3s-dev # ARC runner; digestabot needs no cluster access, just network + OIDC
     timeout-minutes: 15
     permissions:
       contents: write # push the update branch
-      pull-requests: write # open the digest-bump PR
+      pull-requests: write # open the digest-bump PR, enable auto-merge
       id-token: write # OIDC: chainctl assumable identity + gitsign commit signing
+    outputs:
+      pull_request_number: ${{ steps.digestabot.outputs.pull_request_number }}
     steps:
       - name: Checkout
         # uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (upstream)
@@ -49,13 +66,15 @@ jobs:
         run: mkdir -p "${HOME}/.local/bin" && echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
       - name: Update image digests
+        id: digestabot
         # Pinned to main (no release since v1.3.2) for stale-after, min-age,
         # verify-signatures and sbom-diff.
         uses: chainguard-dev/digestabot@0031b8db9dd4e9a1159893c787a0e75875b0ac4d # main 2026-10-08 (v1.3.2+37)
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           include-files: "*.yaml,*.yml,Dockerfile*"
-          registry-map: fastcast-dev.self-hosted.io/cgr/=cgr.dev/max.bern/
+          registry-map: ${{ env.REGISTRY_MAP }}
+          branch-for-pr: ${{ env.PR_BRANCH }}
           signoff: true
           labels-for-pr: automated pr
           title-for-pr: "chore: update image digests"
@@ -63,3 +82,104 @@ jobs:
           # Exact-version tags (e.g. nginx:1.31.4) stop being rebuilt once the
           # next patch ships; warn instead of silently going quiet.
           stale-after: "7"
+
+      # digestabot leaves the PR branch checked out with its commit on top, and
+      # crane (installed by digestabot) authenticated through chainctl.
+      - name: Refresh image-info.json on the PR
+        if: steps.digestabot.outputs.pull_request_number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GIT_AUTHOR_NAME: github-actions[bot]
+          GIT_AUTHOR_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions[bot]
+          GIT_COMMITTER_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          scripts/image-info.sh nginx-demo nginx-demo/html
+          scripts/image-info.sh tomcat-demo tomcat-demo/webapp
+          git add nginx-demo/html/image-info.json tomcat-demo/webapp/image-info.json
+          if git diff --cached --quiet; then
+            echo "image-info.json already current"
+            exit 0
+          fi
+          git commit --signoff -m "chore: refresh image-info.json"
+          auth="$(printf 'x-access-token:%s' "${GH_TOKEN}" | base64 -w0)"
+          echo "::add-mask::${auth}"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic ${auth}" \
+            push origin "HEAD:refs/heads/${PR_BRANCH}"
+
+      - name: Enable auto-merge
+        if: steps.digestabot.outputs.pull_request_number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.digestabot.outputs.pull_request_number }}
+        run: |
+          set -euo pipefail
+          node_id="$(curl -fsS -H "Authorization: Bearer ${GH_TOKEN}" \
+            "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" | jq -r .node_id)"
+          resp="$(curl -fsS -X POST -H "Authorization: Bearer ${GH_TOKEN}" "${GITHUB_GRAPHQL_URL}" \
+            -d "$(jq -nc --arg id "${node_id}" '{
+              query: "mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: MERGE}) { pullRequest { autoMergeRequest { enabledAt } } } }",
+              variables: {id: $id}}')")"
+          if jq -e '.errors' <<<"${resp}" >/dev/null; then
+            msg="$(jq -r '.errors | map(.message) | join("; ")' <<<"${resp}")"
+            # "clean status": nothing is required on main, so GitHub would
+            # merge unchecked. Refuse rather than merge without the gate.
+            if [[ "${msg}" == *"clean status"* ]]; then
+              echo "::error::PR #${PR_NUMBER} not auto-merged: main has no required status checks. Require the Chainguard Checks on main (branch protection or a ruleset)."
+            else
+              echo "::error::enabling auto-merge on PR #${PR_NUMBER} failed: ${msg}"
+            fi
+            exit 1
+          fi
+          echo "Auto-merge enabled on PR #${PR_NUMBER}; it merges when the required checks pass." | tee -a "${GITHUB_STEP_SUMMARY}"
+
+  reconcile-deploy:
+    needs: digestabot
+    if: ${{ !cancelled() }}
+    runs-on: k3s-dev
+    timeout-minutes: 40
+    permissions:
+      actions: write # dispatch deploy.yml
+      pull-requests: read # follow the digest PR to merge
+    steps:
+      - name: Wait for the digest PR to merge
+        if: needs.digestabot.outputs.pull_request_number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.digestabot.outputs.pull_request_number }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 60); do
+            pr="$(curl -fsS -H "Authorization: Bearer ${GH_TOKEN}" \
+              "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+            if [[ "$(jq -r .merged <<<"${pr}")" == true ]]; then
+              echo "PR #${PR_NUMBER} merged as $(jq -r .merge_commit_sha <<<"${pr}")"
+              exit 0
+            fi
+            if [[ "$(jq -r .state <<<"${pr}")" == closed ]]; then
+              echo "::warning::PR #${PR_NUMBER} was closed without merging"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::notice::PR #${PR_NUMBER} not merged after 30m (checks failing or still running); a later hourly run deploys it once it merges"
+
+      - name: Deploy main if its HEAD hasn't been deployed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api() { curl -fsS -H "Authorization: Bearer ${GH_TOKEN}" "$@"; }
+          head="$(api "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/commits/main" | jq -r .sha)"
+          # Any deploy run for this commit counts, whatever its state: a failed
+          # or prod-gated deploy is for a human to look at, not to re-dispatch.
+          runs="$(api "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/runs?branch=main&head_sha=${head}&per_page=1" \
+            | jq -r .total_count)"
+          if [[ "${runs}" -gt 0 ]]; then
+            echo "main@${head:0:12} already has a deploy run"
+            exit 0
+          fi
+          api -X POST "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/actions/workflows/deploy.yml/dispatches" \
+            -d '{"ref":"main"}'
+          echo "Dispatched deploy.yml for main@${head:0:12}" | tee -a "${GITHUB_STEP_SUMMARY}"

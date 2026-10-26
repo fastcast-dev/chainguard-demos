@@ -1,6 +1,8 @@
 # Deploys the demos to the dev k3s cluster on every push to main,
 # then promotes to prod behind the `prod` environment's protection rules
 # (configure required reviewers on the prod environment in repo settings).
+# Merges made with GITHUB_TOKEN (auto-merged digestabot/Guardener PRs) fire no
+# push event; digestabot.yml's reconcile-deploy job dispatches this for them.
 name: Deploy
 
 on:
@@ -24,7 +26,8 @@ jobs:
       runner: k3s-dev
     permissions:
       contents: read
-    secrets: inherit
+    secrets:
+      K3S_DEV: ${{ secrets.K3S_DEV }}
 
   prod:
     needs: dev
@@ -34,4 +37,5 @@ jobs:
       runner: k3s-prod
     permissions:
       contents: read
-    secrets: inherit
+    secrets:
+      K3S_PROD: ${{ secrets.K3S_PROD }}

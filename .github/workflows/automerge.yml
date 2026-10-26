@@ -1,0 +1,46 @@
+# Auto-merge for patching bots that open PRs as a GitHub App (e.g. the
+# Chainguard Guardener's hardened-actions migration PR). GitHub merges them
+# once the required Chainguard Checks pass, never before.
+#
+# digestabot PRs don't come through here: they're opened with GITHUB_TOKEN,
+# which fires no workflows, so digestabot.yml enables their auto-merge itself.
+#
+# Opt bots in with the AUTOMERGE_BOTS repository variable: a comma-separated
+# list of PR author logins, e.g. "my-guardener-app[bot]". The author check
+# can't be spoofed by the PR's contents, and the checks still gate the merge.
+name: Auto-merge bot PRs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  automerge:
+    if: >-
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(format(',{0},', vars.AUTOMERGE_BOTS), format(',{0},', github.event.pull_request.user.login))
+    runs-on: k3s-dev
+    timeout-minutes: 5
+    permissions:
+      contents: write # required by the auto-merge mutation
+      pull-requests: write # enable auto-merge
+    steps:
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NODE_ID: ${{ github.event.pull_request.node_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          resp="$(curl -fsS -X POST -H "Authorization: Bearer ${GH_TOKEN}" "${GITHUB_GRAPHQL_URL}" \
+            -d "$(jq -nc --arg id "${PR_NODE_ID}" '{
+              query: "mutation($id: ID!) { enablePullRequestAutoMerge(input: {pullRequestId: $id, mergeMethod: MERGE}) { pullRequest { autoMergeRequest { enabledAt } } } }",
+              variables: {id: $id}}')")"
+          if jq -e '.errors' <<<"${resp}" >/dev/null; then
+            echo "::error::enabling auto-merge on PR #${PR_NUMBER} failed: $(jq -r '.errors | map(.message) | join("; ")' <<<"${resp}")"
+            exit 1
+          fi
+          echo "Auto-merge enabled on PR #${PR_NUMBER}" | tee -a "${GITHUB_STEP_SUMMARY}"

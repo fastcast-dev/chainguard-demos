@@ -1,0 +1,15 @@
+# yamllint config for the Chainguard Checks `yamllint` check.
+extends: default
+
+rules:
+  # Workflow `run:` blocks and digest-pinned image refs run long by nature.
+  line-length: disable
+  # `on:` is a GitHub Actions key, not a boolean.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+  # Comments carry the upstream-action toggles and pin versions inline.
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  document-start: disable
