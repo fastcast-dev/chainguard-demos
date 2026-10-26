@@ -24,6 +24,14 @@ on:
         description: ARC runner scale set inside the target cluster
         required: true
         type: string
+    # Repo/org-level cluster tokens, passed explicitly instead of
+    # `secrets: inherit`. Environment-scoped secrets of the same name still
+    # take precedence, since the job below runs in that environment.
+    secrets:
+      K3S_DEV:
+        required: false
+      K3S_PROD:
+        required: false
 
 permissions: {}
 
@@ -43,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout
-        #uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (upstream)
+        # uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (upstream)
         uses: chainguard-actions/actions-checkout@1f8e63dffdffd00f53e08b42f3ec278c5dfed4a2 # v7.0.1
         with:
           persist-credentials: false
@@ -79,6 +87,22 @@ jobs:
 
           kubectl version
           kubectl auth whoami || true
+
+      # Each page shows its image's version, packages, shells and provenance,
+      # read from Chainguard's signed SBOM + SLSA attestations for the exact
+      # digest being deployed. The data is cosmetic, so a registry hiccup
+      # degrades the page to "?" rather than blocking a patch rollout.
+      - name: Describe images from their attestations
+        run: |
+          set -euo pipefail
+          for pair in nginx-demo:nginx-demo/html tomcat-demo:tomcat-demo/webapp; do
+            app="${pair%%:*}" out="${pair#*:}/image-info.json"
+            image="$(sed -n 's/^ *image: *//p' "${app}/k8s/statefulset.yaml" | head -1)"
+            if ! scripts/image-info.sh "${image}" "${out}"; then
+              echo "::warning::${app}: could not read attestations for ${image}; page will show '?'"
+              printf '{"image":"%s","error":"attestations unavailable at deploy time"}\n' "${image}" > "${out}"
+            fi
+          done
 
       - name: Publish demo content
         run: |

@@ -1,0 +1,45 @@
+# Chainguard Checks — presubmit gate for every pull request.
+# https://edu.chainguard.dev/chainguard/checks/
+#
+# Each check runs hermetically (no network) in a Wolfi rootfs built from the
+# packages below. Together they are the gate that lets digestabot and
+# Guardener PRs auto-merge: make these required on `main` and nothing lands
+# that weakens the pins, the workflows, or the pod hardening.
+#
+# Run locally:  chainctl checks validate && run-ci [CHECK]
+version: 1
+
+environment:
+  packages:
+    - actionlint
+    - bash
+    - busybox
+    - yamllint
+    - yq
+    - zizmor
+
+checks:
+  actionlint:
+    description: Lint GitHub Actions workflows (expressions, runner labels, shell).
+    timeout: 300s
+    script: actionlint -color
+
+  zizmor:
+    description: Audit workflows for supply-chain and injection risks (medium+).
+    timeout: 300s
+    script: zizmor --offline --min-severity medium .github/
+
+  yamllint:
+    description: Lint every YAML file in the repository.
+    timeout: 300s
+    script: yamllint --strict .
+
+  pins:
+    description: Every action pinned to a commit SHA, every image to a digest.
+    timeout: 120s
+    script: scripts/check-pins.sh
+
+  k8s-hardening:
+    description: StatefulSets keep the nonroot / read-only / no-caps baseline.
+    timeout: 120s
+    script: scripts/check-k8s-hardening.sh

@@ -8,15 +8,22 @@ dev and prod k3s clusters by a hardened GitHub Actions pipeline.
 chainguard-demos/
 ├── nginx-demo/            # Linky's meme page on distroless nginx
 │   ├── html/              # served content (published as a ConfigMap)
+│   │   └── image-info.json  # generated at deploy from the image SBOM + provenance
 │   ├── k8s/               # StatefulSet + Service (public namespace)
 │   └── Dockerfile         # local-only demo build
 ├── tomcat-demo/           # Chainguard × Tomcat page
 │   ├── webapp/            # ROOT webapp content (published as a ConfigMap)
 │   ├── k8s/
 │   └── Dockerfile
+├── scripts/               # SBOM/provenance reader + the policy checks
+├── .chainguard/
+│   ├── ci.yaml            # Chainguard Checks: the presubmit gate
+│   └── actions.yaml       # Guardener: hardened-actions migration PRs
 └── .github/workflows/
     ├── deploy.yml         # push to main → dev, then prod (gated)
-    └── deploy-env.yml     # reusable per-environment deploy
+    ├── deploy-env.yml     # reusable per-environment deploy
+    ├── digestabot.yml     # hourly digest bump → auto-merge → deploy
+    └── automerge.yml      # auto-merge for allow-listed bot PRs (Guardener)
 ```
 
 ## How it deploys
@@ -41,7 +48,8 @@ do the serving.
 
 `deploy.yml` runs on every push to `main`: deploy to **dev** (`k3s-dev` ARC runners,
 in-cluster), then promote to **prod** (`k3s-prod` runners) behind the `prod`
-environment's protection rules.
+environment's protection rules. Bot merges (digestabot, Guardener) fire no `push`, so
+`digestabot.yml` dispatches the deploy for them.
 
 Hardening checklist:
 
@@ -51,17 +59,71 @@ Hardening checklist:
 - kubeconfig built in `RUNNER_TEMP` from the environment-scoped token, never written
   into the workspace
 - single `concurrency` group so deploys never interleave; `timeout-minutes` on the job
-- the images themselves: distroless, nonroot, read-only rootfs, all capabilities
-  dropped, `seccompProfile: RuntimeDefault`
+- the images themselves: minimal Chainguard images (nginx ships no shell), nonroot,
+  read-only rootfs, all capabilities dropped, `seccompProfile: RuntimeDefault`
 
-## Digest pinning
+## Digest pinning and automated patching
 
-All image references are pinned by digest (`tag@sha256:…`).
-[digestabot](https://github.com/chainguard-dev/digestabot) runs hourly and opens a PR
-whenever a pinned tag has moved to a new digest. Files keep the mirror prefix; digest
-lookups are mapped to the upstream catalog (`fastcast-dev.self-hosted.io/cgr/` →
-`cgr.dev/max.bern/`) and authenticated keylessly via a Chainguard assumable identity
-(`CHAINGUARD_IDENTITY` secret + OIDC — no registry credentials in GitHub).
+All image references are pinned by digest (`tag@sha256:…`), and patches flow from
+Chainguard to prod with no human in the loop (beyond the `prod` environment's reviewers):
+
+1. **digestabot** (`digestabot.yml`, hourly) re-resolves every pinned tag and opens or
+   refreshes the `update-digests` PR when one has moved. Files keep the mirror prefix;
+   digest lookups are mapped to the upstream catalog (`fastcast-dev.self-hosted.io/cgr/`
+   → `cgr.dev/max.bern/`) and authenticated keylessly via a Chainguard assumable
+   identity (`CHAINGUARD_IDENTITY` variable + OIDC — no registry credentials in GitHub).
+2. It enables **auto-merge** on the PR. GitHub merges it once the required
+   [Chainguard Checks](#chainguard-checks) pass, never before. If `main` has no required
+   checks the job fails rather than merging unchecked.
+3. **reconcile-deploy** waits for the merge and dispatches `deploy.yml`. A merge made
+   with `GITHUB_TOKEN` fires no `push` event, so this is what deploys it. It also runs
+   every hour, so anything else merged that way still ships within the hour.
+
+Guardener's hardened-actions migration PRs (`.chainguard/actions.yaml`) auto-merge the
+same way through `automerge.yml`, for the bot logins listed in `AUTOMERGE_BOTS`.
+
+## Chainguard Checks
+
+`.chainguard/ci.yaml` is the presubmit gate every PR runs on the Chainguard sandbox
+plane, hermetically (no network):
+
+| Check | What it enforces |
+|---|---|
+| `actionlint` | workflows are valid: expressions, runner labels, shell |
+| `zizmor` | no medium+ supply-chain / injection findings in `.github/` |
+| `yamllint` | every YAML file lints clean (`.yamllint.yaml`) |
+| `pins` | every action pinned to a commit SHA, every image to a digest |
+| `k8s-hardening` | StatefulSets stay nonroot, read-only rootfs, no caps, RuntimeDefault seccomp, memory-limited |
+
+```sh
+chainctl checks validate          # lint the config offline
+run-ci [CHECK]                    # run the checks on the working tree (develop session)
+chainctl checks status owner/repo#N --watch
+```
+
+## Provenance, SBOMs and shells on the pages
+
+Each page explains how we know what's in its image, using Chainguard's own signed
+attestations rather than claims typed into the HTML. At deploy time,
+`scripts/image-info.sh` (only `curl`, `jq`, `base64`) reads them from the mirror for the
+exact digest the StatefulSet names, and writes `image-info.json` into the page's
+ConfigMap:
+
+- **SPDX SBOM**: the main package version (plus Java for tomcat), every apk package,
+  and whether any of them is a shell or a package manager. nginx has neither; tomcat
+  keeps `bash` + `busybox` because its entrypoint, `catalina.sh`, is a shell script, and
+  the page says so.
+- **SLSA provenance**: builder, apko version, build time, entrypoint, run-as user, and
+  the Sigstore signing identity.
+- **Rekor** log entries for both, linked to `search.sigstore.dev`, and the exact
+  `cosign verify-attestation` commands to check them yourself.
+- Links to the Chainguard docs on SBOMs, signature verification, SLSA, Rekor and
+  distroless.
+
+The data is cosmetic: if the attestations can't be read, the deploy warns and carries on,
+and the page shows "?". To preview locally:
+`scripts/image-info.sh "$(sed -n 's/^ *image: *//p' nginx-demo/k8s/statefulset.yaml)" nginx-demo/html/image-info.json`
+(the generated file is git-ignored).
 
 ## One-time setup
 
@@ -87,6 +149,19 @@ Chainguard `actions-runner` image with `kubectl` added via
 > Note: add **both** `kubectl-1.36` and `kubectl-1.36-default` to the Custom Assembly
 > config — the versioned package installs `/usr/bin/kubectl-1.36`, and the `-default`
 > companion provides the unversioned `/usr/bin/kubectl` symlink the workflow calls.
+
+### 3. Automated patching
+
+For the digestabot → auto-merge → deploy loop to run unattended:
+
+- **Settings → General → Allow auto-merge**: on.
+- **Settings → Actions → General → Allow GitHub Actions to create and approve pull
+  requests**: on (digestabot opens its PR with `GITHUB_TOKEN`).
+- **Branch protection / ruleset on `main`**: require the Chainguard Checks status
+  checks. Don't require an approving review, or bot PRs will wait for a human.
+- **Chainguard Checks**: the Checks GitHub App installed on the repository.
+- **`AUTOMERGE_BOTS`** (repository variable, optional): comma-separated bot logins whose
+  PRs auto-merge, e.g. the Guardener app's `…[bot]` login.
 
 ## Local testing
 

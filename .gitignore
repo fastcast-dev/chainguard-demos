@@ -1,2 +1,5 @@
 .DS_Store
 *.log
+# Generated at deploy time from image attestations (scripts/image-info.sh)
+nginx-demo/html/image-info.json
+tomcat-demo/webapp/image-info.json

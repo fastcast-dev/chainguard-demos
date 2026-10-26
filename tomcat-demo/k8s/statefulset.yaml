@@ -64,6 +64,10 @@ spec:
               mountPath: /usr/local/tomcat/webapps/ROOT/index.html
               subPath: index.html
               readOnly: true
+            - name: webapp
+              mountPath: /usr/local/tomcat/webapps/ROOT/image-info.json
+              subPath: image-info.json
+              readOnly: true
             # Catalina needs these writable when the rootfs is read-only
             - name: temp
               mountPath: /usr/local/tomcat/temp
