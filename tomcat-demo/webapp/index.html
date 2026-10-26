@@ -8,24 +8,131 @@
     :root {
       --ink: #26030f;
       --panel: #3d0a1b;
+      --line: #6e2038;
       --amber: #ffc26e;
       --lav: #ffb2c9;
       --mint: #7ff0c9;
-      --text: #ffeaef;
-      --line: #6e2038;
       --accent: var(--amber);
+      --text: #ffeaef;
+      --muted: #b87b8f;
+      --glow: #581229;
+      --glow-x: 30%;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 4.5rem; }
     body {
       margin: 0;
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
       font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      background: radial-gradient(1200px 800px at 30% -10%, #581229 0%, var(--ink) 60%);
+      line-height: 1.55;
+      background: radial-gradient(1400px 900px at var(--glow-x) -10%, var(--glow) 0%, var(--ink) 60%) fixed;
       color: var(--text);
     }
-    main { max-width: 720px; padding: 3rem 2rem; text-align: center; }
+    a { color: var(--accent); }
+    code { font-family: inherit; overflow-wrap: anywhere; }
+
+    /* sticky section nav */
+    nav {
+      position: sticky; top: 0; z-index: 10;
+      background: color-mix(in srgb, var(--ink) 85%, transparent);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--line);
+    }
+    nav .inner { display: flex; align-items: center; gap: 1.25rem; overflow-x: auto; padding: 0.8rem 0; }
+    nav .brand { font-weight: bold; white-space: nowrap; }
+    nav a { color: var(--lav); text-decoration: none; font-size: 0.85rem; white-space: nowrap; }
+    nav a:hover { color: var(--accent); }
+
+    .wrap { width: min(1180px, 100% - 3rem); margin: 0 auto; }
+    section { padding: 2.5rem 0 0.5rem; }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0.5rem 0; }
+    h1 span { color: var(--accent); }
+    h2 { font-size: 1.35rem; margin: 0 0 0.35rem; }
+    .sub { color: var(--lav); margin: 0 0 1.5rem; max-width: 80ch; }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+
+    .hero { text-align: center; padding: 3rem 0 1rem; }
+    .tagline { color: var(--lav); font-size: 1.05rem; margin: 0 0 2rem; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    .stat {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 1.25rem 1rem; text-align: center;
+    }
+    .stat .num { font-size: clamp(1.6rem, 3vw, 2.2rem); color: var(--accent); font-weight: bold; }
+    .stat .label { font-size: 0.8rem; color: var(--lav); }
+    .stats.secondary { grid-template-columns: repeat(2, 1fr); max-width: 560px; margin: 1rem auto 0; }
+    .stats.secondary .num { font-size: 1.5rem; }
+
+    .panel {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+    }
+    .duo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+    /* evidence cards */
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .card { display: flex; flex-direction: column; gap: 0.9rem; }
+    .card h3 { margin: 0; font-size: 1.05rem; color: var(--accent); }
+    .card p { margin: 0; color: var(--lav); font-size: 0.9rem; }
+    .facts { margin: 0; display: grid; gap: 0.7rem; }
+    .facts div { display: grid; gap: 0.1rem; }
+    .facts dt { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .facts dd { margin: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+    .pill {
+      display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px; font-size: 0.8rem;
+      font-weight: bold; background: color-mix(in srgb, var(--mint) 18%, transparent); color: var(--mint);
+    }
+    .pill.warn { background: color-mix(in srgb, #ffc26e 18%, transparent); color: #ffc26e; }
+
+    /* package browser */
+    .toolbar { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    .toolbar input {
+      flex: 1 1 280px; font: inherit; color: var(--text); background: var(--ink);
+      border: 1px solid var(--line); border-radius: 10px; padding: 0.65rem 0.9rem;
+    }
+    .toolbar input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .pkgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
+    .pkgs li {
+      display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.85rem;
+      padding: 0.5rem 0.75rem; border-radius: 8px; background: color-mix(in srgb, var(--ink) 60%, transparent);
+    }
+    .pkgs li .v { color: var(--muted); white-space: nowrap; }
+    .pkgs li.shell { outline: 1px solid #ffc26e; }
+    .pkgs li.main { outline: 1px solid var(--accent); }
+
+    /* verify commands */
+    .cmd { margin-bottom: 1.25rem; }
+    .cmd-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+    .cmd-head span { color: var(--lav); font-size: 0.9rem; }
+    pre {
+      margin: 0; background: #000; border: 1px solid var(--line); border-radius: 12px;
+      padding: 1rem 1.25rem; font-size: 0.8rem; overflow-x: auto; color: var(--text);
+    }
+    button.copy {
+      font: inherit; font-size: 0.8rem; cursor: pointer; color: var(--ink); background: var(--lav);
+      border: 0; border-radius: 999px; padding: 0.3rem 0.9rem; font-weight: bold;
+    }
+    button.copy:hover { background: var(--accent); }
+
+    /* docs */
+    .docs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+    .docs a.panel { display: block; text-decoration: none; color: var(--text); transition: transform 0.1s ease, border-color 0.1s ease; }
+    .docs a.panel:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .docs strong { display: block; color: var(--accent); margin-bottom: 0.25rem; }
+    .docs span { color: var(--lav); font-size: 0.85rem; }
+
+    .links { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin: 3rem 0 0; }
+    .links a {
+      color: var(--ink); background: var(--lav); text-decoration: none; padding: 0.6rem 1.1rem;
+      border-radius: 999px; font-weight: bold; font-size: 0.85rem; transition: transform 0.1s ease, background 0.1s ease;
+    }
+    .links a:hover { background: var(--accent); transform: translateY(-2px); }
+    footer { margin: 2.5rem 0 3rem; font-size: 0.8rem; color: var(--muted); text-align: center; }
+
+    @media (max-width: 900px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      .cards, .duo-grid { grid-template-columns: 1fr; }
+    }
     .duo { font-size: 4.5rem; }
     .duo .cat { display: inline-block; animation: pounce 2.5s ease-in-out infinite; }
     .duo .octo { display: inline-block; animation: pounce 2.5s ease-in-out infinite reverse; }
@@ -33,87 +140,26 @@
       0%, 100% { transform: translateY(0); }
       50%      { transform: translateY(-10px); }
     }
-    h1 { font-size: 1.8rem; margin: 0.5rem 0; }
-    h1 span { color: var(--amber); }
-    .tagline { color: var(--lav); margin-bottom: 2rem; }
-    .joke {
-      background: var(--panel);
-      border: 1px solid #6e2038;
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      margin: 1rem 0;
-      text-align: left;
-      font-size: 0.9rem;
-      line-height: 1.6;
-    }
+    .joke { text-align: left; font-size: 0.95rem; }
     .joke .q { color: var(--amber); }
-    .joke .a { color: var(--mint); }
-    .links { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; margin-top: 2rem; }
-    .links a {
-      color: var(--ink);
-      background: var(--lav);
-      text-decoration: none;
-      padding: 0.6rem 1.1rem;
-      border-radius: 999px;
-      font-weight: bold;
-      font-size: 0.85rem;
-      transition: transform 0.1s ease, background 0.1s ease;
-    }
-    .links a:hover { background: var(--amber); transform: translateY(-2px); }
-    .stats { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin: 2rem 0 1rem; }
-    .stat {
-      background: var(--panel);
-      border: 1px solid #6e2038;
-      border-radius: 12px;
-      padding: 1rem 1.5rem;
-      min-width: 150px;
-    }
-    .stat .num { font-size: 2rem; color: var(--amber); font-weight: bold; }
-    .stat .label { font-size: 0.75rem; color: var(--lav); }
-    /* --- evidence sections, shared by both demo pages --- */
-    h2 { font-size: 1.1rem; margin: 2.5rem 0 0.25rem; color: var(--text); }
-    .sub { color: var(--lav); font-size: 0.8rem; margin: 0 0 1rem; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: left; }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 1rem 1.25rem;
-      font-size: 0.8rem;
-      line-height: 1.55;
-      color: var(--lav);
-    }
-    .card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--accent); }
-    .card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; }
-    .card dt { color: var(--text); }
-    .card dd { margin: 0; word-break: break-all; }
-    .card a { color: var(--accent); }
-    .card p { margin: 0.4rem 0 0; }
-    .ok { color: var(--mint); font-weight: bold; }
-    .warn { color: var(--amber, #ffc26e); font-weight: bold; }
-    details.packages { margin-top: 0.6rem; }
-    details.packages summary { cursor: pointer; color: var(--text); }
-    details.packages ul { columns: 2; padding-left: 1.1rem; margin: 0.5rem 0 0; font-size: 0.75rem; }
-    .verify {
-      background: #000;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 1rem 1.25rem;
-      text-align: left;
-      font-size: 0.75rem;
-      overflow-x: auto;
-      white-space: pre;
-      color: var(--text);
-    }
-    .verify .comment { color: #8a7bb8; }
-    .docs { text-align: left; font-size: 0.8rem; columns: 2; padding-left: 1.1rem; color: var(--lav); }
-    .docs a { color: var(--accent); }
-    .muted { color: #8a7bb8; font-size: 0.75rem; }
-    footer { margin-top: 2.5rem; font-size: 0.75rem; color: #b87b8f; }
+    .joke .a { color: var(--mint); margin-top: 0.3rem; }
   </style>
 </head>
 <body data-shells-why="Tomcat's entrypoint, catalina.sh, is a shell script, so this image keeps a shell for it. It's still locked down: nonroot, read-only root filesystem, every capability dropped, and the nginx demo next door ships no shell at all.">
-  <main>
+  <nav>
+    <div class="wrap inner">
+      <span class="brand">🐈 tomcat-demo</span>
+      <a href="#overview">Overview</a>
+      <a href="#provenance">Provenance</a>
+      <a href="#sbom">SBOM</a>
+      <a href="#shells">Shells</a>
+      <a href="#packages">Packages</a>
+      <a href="#verify">Verify</a>
+      <a href="#learn">Learn more</a>
+    </div>
+  </nav>
+
+  <section id="overview" class="wrap hero">
     <div class="duo">
       <span class="cat" role="img" aria-label="Tomcat">🐈</span>
       <span role="img" aria-label="handshake">🤝</span>
@@ -129,93 +175,121 @@
       <div class="stat"><div class="num" id="run-as">…</div><div class="label">runs as uid</div></div>
     </div>
 
-    <div class="joke">
-      <div class="q">Q: How does Linky hug a Tomcat?</div>
-      <div class="a">A: Very carefully — with all eight arms, a signed SBOM, and a read-only root filesystem.</div>
+    <div class="duo-grid" style="margin-top: 1.5rem">
+      <div class="panel joke">
+        <div class="q">Q: How does Linky hug a Tomcat?</div>
+        <div class="a">A: Very carefully — with all eight arms, a signed SBOM, and a read-only root filesystem.</div>
+      </div>
+      <div class="panel joke">
+        <div class="q">Q: What did the auditor say to this container?</div>
+        <div class="a">A: "Show me your provenance." So it did — it's signed and in a public transparency log. 🐈✅</div>
+      </div>
     </div>
+  </section>
 
-    <div class="joke">
-      <div class="q">Q: What did the auditor say to this container?</div>
-      <div class="a">A: "Show me your provenance." So it did — it's signed and in a public transparency log. 🐈✅</div>
-    </div>
-
+  <section id="evidence" class="wrap">
     <h2>How do we know what's in this image?</h2>
-    <p class="sub">Everything below is read at deploy time from Chainguard's signed attestations
-      for <code id="image-ref">this image</code> (<span id="image-platform">linux/amd64</span>) —
-      nothing on this page is typed in by hand.</p>
-    <p class="muted" id="info-error" hidden>Image attestations weren't available when this page
-      was deployed, so the live values show "?".</p>
+    <p class="sub">Everything here is read at deploy time from Chainguard's signed attestations
+      for <code id="image-ref">this image</code> (<span id="image-platform">linux/amd64</span>).
+      None of it is typed in by hand.</p>
+    <p class="panel muted" id="info-error" hidden>Image attestations weren't available when this
+      page was deployed, so the live values show "?".</p>
 
     <div class="cards">
-      <div class="card">
+      <div class="card panel" id="provenance">
         <h3>🧾 Provenance (SLSA)</h3>
-        <dl>
-          <dt>built by</dt><dd id="prov-builder">…</dd>
-          <dt>tooling</dt><dd>apko <span id="prov-apko">…</span></dd>
-          <dt>built at</dt><dd id="prov-finished">…</dd>
-          <dt>entrypoint</dt><dd id="prov-entrypoint">…</dd>
-          <dt>signed by</dt><dd id="prov-identity">…</dd>
-          <dt>Rekor</dt><dd><a id="prov-rekor" href="https://search.sigstore.dev/">…</a></dd>
+        <p>A signed, tamper-evident record of <em>how</em> the image was assembled, published to
+          the public Sigstore transparency log.</p>
+        <dl class="facts">
+          <div><dt>Built by</dt><dd id="prov-builder">…</dd></div>
+          <div><dt>Tooling</dt><dd>apko <span id="prov-apko">…</span></dd></div>
+          <div><dt>Built at</dt><dd id="prov-finished">…</dd></div>
+          <div><dt>Entrypoint</dt><dd><code id="prov-entrypoint">…</code></dd></div>
+          <div><dt>Signed by</dt><dd><code id="prov-identity">…</code></dd></div>
+          <div><dt>Transparency log</dt><dd><a id="prov-rekor" href="https://search.sigstore.dev/">…</a></dd></div>
         </dl>
-        <p>A signed, tamper-evident record of <em>how</em> the image was assembled — by which
-          builder, from which packages — published to the public Sigstore transparency log.</p>
       </div>
 
-      <div class="card">
+      <div class="card panel" id="sbom">
         <h3>📦 SBOM (SPDX)</h3>
-        <dl>
-          <dt>packages</dt><dd id="sbom-count">…</dd>
-          <dt>generated</dt><dd id="sbom-created">…</dd>
-          <dt>by</dt><dd id="sbom-creators">…</dd>
-          <dt>Rekor</dt><dd><a id="sbom-rekor" href="https://search.sigstore.dev/">…</a></dd>
-        </dl>
         <p>Written by apko at build time, not reverse-engineered by a scanner afterwards, so it
           lists exactly what went in.</p>
-        <details class="packages">
-          <summary>every package in the image</summary>
-          <ul id="package-list"></ul>
-        </details>
+        <dl class="facts">
+          <div><dt>Packages</dt><dd id="sbom-count">…</dd></div>
+          <div><dt>Generated</dt><dd id="sbom-created">…</dd></div>
+          <div><dt>Generated by</dt><dd id="sbom-creators">…</dd></div>
+          <div><dt>Transparency log</dt><dd><a id="sbom-rekor" href="https://search.sigstore.dev/">…</a></dd></div>
+        </dl>
+        <p><a href="#packages">Browse every package ↓</a></p>
       </div>
 
-      <div class="card">
+      <div class="card panel" id="shells">
         <h3>🐚 Shells &amp; package managers</h3>
-        <dl>
-          <dt>shells</dt><dd id="shell-list">…</dd>
-          <dt>package mgr</dt><dd id="pkgmgr">…</dd>
-          <dt>runs as</dt><dd id="run-as-detail">…</dd>
-        </dl>
         <p id="shell-verdict">…</p>
+        <dl class="facts">
+          <div><dt>Shells</dt><dd id="shell-list">…</dd></div>
+          <div><dt>Package manager</dt><dd id="pkgmgr">…</dd></div>
+          <div><dt>Runs as</dt><dd id="run-as-detail">…</dd></div>
+        </dl>
       </div>
     </div>
+  </section>
 
-    <h2>Don't trust this page — verify it</h2>
-    <p class="sub">The same attestations, checked against Sigstore with
-      <a href="https://edu.chainguard.dev/open-source/sigstore/cosign/an-introduction-to-cosign/" style="color: var(--accent)">cosign</a>:</p>
-    <div class="verify" id="verify">…</div>
+  <section id="packages" class="wrap">
+    <h2>Every package in the image</h2>
+    <p class="sub">Straight from the SBOM. The main package is outlined in the page's accent
+      colour; any shell is outlined in amber.</p>
+    <div class="panel">
+      <div class="toolbar">
+        <input id="pkg-filter" type="search" placeholder="Filter packages, e.g. openssl" aria-label="Filter packages">
+        <span class="muted" id="pkg-shown"></span>
+      </div>
+      <ul class="pkgs" id="package-list"></ul>
+    </div>
+  </section>
 
+  <section id="verify" class="wrap">
+    <h2>Don't trust this page: verify it</h2>
+    <p class="sub">Check the same attestations against Sigstore yourself with
+      <a href="https://edu.chainguard.dev/open-source/sigstore/cosign/an-introduction-to-cosign/">cosign</a>.
+      SBOMs and provenance are attested per architecture, so these target the
+      <span id="verify-platform">linux/amd64</span> image.</p>
+    <div class="cmd">
+      <div class="cmd-head"><span>SLSA provenance: who built it, and how</span><button class="copy" data-copy="verify-prov">copy</button></div>
+      <pre id="verify-prov">…</pre>
+    </div>
+    <div class="cmd">
+      <div class="cmd-head"><span>SPDX SBOM: list the apk packages inside</span><button class="copy" data-copy="verify-sbom">copy</button></div>
+      <pre id="verify-sbom">…</pre>
+    </div>
+  </section>
+
+  <section id="learn" class="wrap">
     <h2>Learn more</h2>
-    <ul class="docs">
-      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/how-to-use/retrieve-image-sboms/">Retrieve a Chainguard image's SBOM</a></li>
-      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/how-to-use/verifying-chainguard-images-and-metadata-signatures-with-cosign/">Verify image signatures &amp; attestations</a></li>
-      <li><a id="directory-provenance" href="https://images.chainguard.dev/">This image's provenance &amp; SBOM in the Directory</a></li>
-      <li><a href="https://edu.chainguard.dev/open-source/slsa/what-is-slsa/">What is SLSA?</a></li>
-      <li><a href="https://edu.chainguard.dev/open-source/sbom/what-is-an-sbom/">What is an SBOM?</a></li>
-      <li><a href="https://edu.chainguard.dev/open-source/sigstore/rekor/an-introduction-to-rekor/">Rekor, the transparency log</a></li>
-      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/about/getting-started-distroless/">Getting started with distroless</a></li>
-      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/troubleshooting/debugging-distroless-images/">Debugging an image with no shell</a></li>
-    </ul>
+    <p class="sub">Chainguard's docs on the pieces this page is built from.</p>
+    <div class="docs">
+      <a class="panel" href="https://edu.chainguard.dev/chainguard/chainguard-images/how-to-use/retrieve-image-sboms/"><strong>Retrieve an image's SBOM</strong><span>Download and inspect the SPDX SBOM attached to any Chainguard image.</span></a>
+      <a class="panel" href="https://edu.chainguard.dev/chainguard/chainguard-images/how-to-use/verifying-chainguard-images-and-metadata-signatures-with-cosign/"><strong>Verify signatures &amp; attestations</strong><span>Check images, SBOMs and provenance with cosign.</span></a>
+      <a class="panel" id="directory-provenance" href="https://images.chainguard.dev/"><strong>This image in the Directory</strong><span>Provenance, SBOM and version history on images.chainguard.dev.</span></a>
+      <a class="panel" href="https://edu.chainguard.dev/open-source/slsa/what-is-slsa/"><strong>What is SLSA?</strong><span>The supply-chain framework behind build provenance.</span></a>
+      <a class="panel" href="https://edu.chainguard.dev/open-source/sbom/what-is-an-sbom/"><strong>What is an SBOM?</strong><span>Software bills of materials, and why they matter.</span></a>
+      <a class="panel" href="https://edu.chainguard.dev/open-source/sigstore/rekor/an-introduction-to-rekor/"><strong>Rekor, the transparency log</strong><span>Where every signature on this page is publicly recorded.</span></a>
+      <a class="panel" href="https://edu.chainguard.dev/chainguard/chainguard-images/about/getting-started-distroless/"><strong>Getting started with distroless</strong><span>Why minimal images leave out shells and package managers.</span></a>
+      <a class="panel" href="https://edu.chainguard.dev/chainguard/chainguard-images/troubleshooting/debugging-distroless-images/"><strong>Debugging without a shell</strong><span>Ephemeral debug containers and other techniques.</span></a>
+    </div>
+  </section>
 
+  <div class="wrap">
     <div class="links">
       <a href="https://images.chainguard.dev/directory/image/tomcat/versions">Tomcat Image</a>
       <a href="https://edu.chainguard.dev">Chainguard Academy</a>
       <a href="https://tomcat.apache.org">Apache Tomcat</a>
     </div>
-
     <footer>
       served by a <strong>Chainguard tomcat</strong> container · catalina purring as uid 65532 ·
       one very secure cat, guarded by one very thorough octopus
     </footer>
-  </main>
+  </div>
   <script>
     // image-info.json is generated at deploy time (scripts/image-info.sh) from
     // the signed SPDX SBOM and SLSA provenance of the exact digest deployed.
@@ -226,9 +300,24 @@
     const when = (t) => (t ? new Date(t).toUTCString().replace(" GMT", " UTC") : "unknown");
     const rekor = (id, entry) => {
       const a = $(id);
-      a.textContent = "log index " + entry.log_index;
+      a.textContent = "Rekor log index " + entry.log_index + " ↗";
       a.href = "https://search.sigstore.dev/?logIndex=" + entry.log_index;
     };
+    const pill = (text, warn) => {
+      const s = document.createElement("span");
+      s.className = warn ? "pill warn" : "pill";
+      s.textContent = text;
+      return s;
+    };
+
+    for (const b of document.querySelectorAll("button.copy")) {
+      b.addEventListener("click", () => {
+        navigator.clipboard.writeText($(b.dataset.copy).textContent).then(() => {
+          b.textContent = "copied ✓";
+          setTimeout(() => (b.textContent = "copy"), 1500);
+        });
+      });
+    }
 
     fetch("image-info.json", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
@@ -248,55 +337,67 @@
 
         set("image-ref", info.image.replace(/@sha256:(\w{12})\w+$/, "@sha256:$1…"));
         set("image-platform", info.platform);
+        set("verify-platform", info.platform);
 
-        set("prov-builder", prov.builder);
+        set("prov-builder", prov.builder.replace(/^https:\/\//, ""));
         set("prov-apko", prov.apko_version);
         set("prov-finished", when(prov.finished_on));
         set("prov-entrypoint", info.entrypoint);
-        set("prov-identity", prov.signing_identity);
+        set("prov-identity", prov.signing_identity.replace(/^https:\/\//, ""));
         rekor("prov-rekor", prov.rekor);
 
         set("sbom-count", info.package_count + " apk packages");
         set("sbom-created", when(info.created));
-        set("sbom-creators", info.sbom.creators.join(", "));
+        set("sbom-creators", info.sbom.creators.join(" · "));
         rekor("sbom-rekor", info.sbom.rekor);
+
+        // Package browser, filterable.
+        const list = $("package-list");
         for (const p of pkgs) {
           const li = document.createElement("li");
-          li.textContent = p.name + " " + p.version;
-          $("package-list").appendChild(li);
+          if (info.shells.includes(p.name)) li.className = "shell";
+          if (p.name === info.main_package.name) li.className = "main";
+          const n = document.createElement("span");
+          n.textContent = p.name;
+          const v = document.createElement("span");
+          v.className = "v";
+          v.textContent = p.version;
+          li.append(n, v);
+          li.dataset.name = p.name;
+          list.appendChild(li);
         }
+        const filter = () => {
+          const q = $("pkg-filter").value.trim().toLowerCase();
+          let shown = 0;
+          for (const li of list.children) {
+            li.hidden = q !== "" && !li.dataset.name.includes(q);
+            if (!li.hidden) shown++;
+          }
+          set("pkg-shown", shown + " of " + pkgs.length + " packages");
+        };
+        $("pkg-filter").addEventListener("input", filter);
+        filter();
 
         const apk = pkgs.some((p) => p.name === "apk-tools");
-        set("shell-list", info.shells.length ? info.shells.join(", ") : "none");
-        set("pkgmgr", apk ? "apk-tools" : "none");
-        set("run-as-detail", "uid " + info.run_as + (info.run_as !== "0" ? " (nonroot)" : " (root!)"));
-        const verdict = $("shell-verdict");
-        const badge = document.createElement("span");
-        if (info.shells.length === 0) {
-          badge.className = "ok";
-          badge.textContent = "No shell.";
-          verdict.replaceChildren(badge, " None of the " + info.package_count +
-            " packages in the SBOM is a shell, so there's nothing for an attacker to drop into, and nothing for `kubectl exec … sh` to run. ");
-        } else {
-          badge.className = "warn";
-          badge.textContent = "Ships " + info.shells.join(" + ") + ".";
-          verdict.replaceChildren(badge, " " + SHELLS_WHY + " ");
-        }
-        if (!apk) verdict.append("No package manager either: nothing new can be installed at runtime.");
+        const shells = info.shells.length;
+        $("shell-list").replaceChildren(shells ? pill(info.shells.join(", "), true) : pill("none"));
+        $("pkgmgr").replaceChildren(apk ? pill("apk-tools", true) : pill("none"));
+        $("run-as-detail").replaceChildren(info.run_as !== "0" ? pill("uid " + info.run_as + " (nonroot)") : pill("root", true));
+        set("shell-verdict", shells === 0
+          ? "No shell. None of the " + info.package_count + " packages in the SBOM is a shell, so there's nothing for an attacker to drop into, and nothing for `kubectl exec … sh` to run." +
+            (apk ? "" : " No package manager either: nothing new can be installed at runtime.")
+          : "Ships " + info.shells.join(" + ") + ". " + SHELLS_WHY +
+            (apk ? "" : " There's no package manager, so nothing new can be installed at runtime."));
 
         $("directory-provenance").href = "https://images.chainguard.dev/directory/image/" + repo + "/provenance";
         // Attestations are per architecture: verify the platform image, not the index.
         const ref = info.image.replace(/@.*$/, "@" + info.platform_digest);
-        const flags = "--certificate-oidc-issuer=https://issuer.enforce.dev \\\n    --certificate-identity=" + prov.signing_identity + " \\\n    ";
-        $("verify").textContent = (
-          "# " + info.platform + " image; SBOM and provenance are attested per architecture\n\n" +
-          "# SLSA provenance: who built it, how\n" +
-          "cosign verify-attestation --type slsaprovenance1 \\\n    " + flags + ref + "\n\n" +
-          "# SPDX SBOM: what's inside (list the apk packages)\n" +
-          "cosign verify-attestation --type spdxjson \\\n    " + flags + ref + " \\\n" +
-          "  | jq -r '.payload | @base64d | fromjson | .predicate.packages[]\n" +
-          "      | select(any(.externalRefs[]?; .referenceLocator | startswith(\"pkg:apk/\"))) | .name' | sort -u"
-        );
+        const flags = "  --certificate-oidc-issuer=https://issuer.enforce.dev \\\n  --certificate-identity=" + prov.signing_identity + " \\\n  ";
+        set("verify-prov", "cosign verify-attestation --type slsaprovenance1 \\\n" + flags + ref);
+        set("verify-sbom",
+          "cosign verify-attestation --type spdxjson \\\n" + flags + ref + " \\\n" +
+          "| jq -r '.payload | @base64d | fromjson | .predicate.packages[]\n" +
+          "    | select(any(.externalRefs[]?; .referenceLocator | startswith(\"pkg:apk/\"))) | .name' | sort -u");
       })
       .catch(() => {
         $("info-error").hidden = false;
