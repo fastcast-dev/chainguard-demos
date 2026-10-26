@@ -1,69 +1,105 @@
 #!/usr/bin/env bash
-# Write image-info.json for a demo app: the version of the image's main
-# package and every apk package it ships, read from the image's own apk
-# database. The page fetches the JSON, so the numbers it shows always match
-# the digest the StatefulSet runs (checked by scripts/check-image-info.sh).
+# Describe a deployed image from Chainguard's own signed attestations:
+# the SPDX SBOM (packages, versions, shells) and the SLSA provenance
+# (builder, build time, run-as user), plus their Rekor transparency-log
+# entries. The pages fetch the resulting image-info.json.
 #
-#   scripts/image-info.sh nginx-demo  nginx-demo/html
-#   scripts/image-info.sh tomcat-demo tomcat-demo/webapp
+#   scripts/image-info.sh IMAGE_REF OUT_JSON
 #
-# Chainguard images are distroless, so this can't be asked of a running pod;
-# it reads the image straight from the registry with crane instead.
+# The deploy workflow runs this for the exact digest each StatefulSet names,
+# so the pages always describe what was just rolled out. Chainguard images
+# are distroless, so the running pod can't be asked; the attestations sit
+# next to the image in the registry (mirrored with it), signed at build time.
 #
-# REGISTRY_MAP (prefix=replacement) rewrites the pull ref, mirroring
-# digestabot's registry-map, e.g. to read from cgr.dev with chainctl auth.
-# Leave it empty to read from the internal mirror (no auth).
+# Needs only curl, jq and base64. The internal mirror needs no auth.
 set -euo pipefail
 
-app="${1:?usage: image-info.sh APP_DIR CONTENT_DIR}"
-out_dir="${2:?usage: image-info.sh APP_DIR CONTENT_DIR}"
-platform="${PLATFORM:-linux/amd64}"
+image="${1:?usage: image-info.sh IMAGE_REF OUT_JSON}"
+out="${2:?usage: image-info.sh IMAGE_REF OUT_JSON}"
+arch="${ARCH:-amd64}"
 
-image="$(sed -n 's/^ *image: *//p' "${app}/k8s/statefulset.yaml" | head -1)"
-[[ "${image}" == *@sha256:* ]] || { echo "${app}: image is not digest-pinned: ${image}" >&2; exit 1; }
+[[ "${image}" == *@sha256:* ]] || { echo "image is not digest-pinned: ${image}" >&2; exit 1; }
+host="${image%%/*}"
+path="${image#*/}"
+repo="${path%@*}" repo="${repo%:*}"
+digest="${image#*@}"
 
-ref="${image}"
-if [[ -n "${REGISTRY_MAP:-}" ]]; then
-  from="${REGISTRY_MAP%%=*}" to="${REGISTRY_MAP#*=}"
-  ref="${to}${image#"${from}"}"
-fi
+reg="https://${host}/v2/${repo}"
+accept='application/vnd.oci.image.index.v1+json,application/vnd.oci.image.manifest.v1+json'
+get() { curl -fsSL --retry 2 -H "Accept: ${accept}" "$@"; }
 
-labels="$(crane config --platform "${platform}" "${ref}" | jq -c '.config.Labels // {}')"
-main_label="$(jq -r '."dev.chainguard.package.main" // ""' <<<"${labels}")"
+# SBOM and provenance are attested per architecture, on the platform image.
+index="$(get "${reg}/manifests/${digest}")"
+platform_digest="$(jq -r --arg arch "${arch}" \
+  'if .manifests then (.manifests[] | select(.platform.architecture == $arch) | .digest) else empty end' <<<"${index}")"
+platform_digest="${platform_digest:-${digest}}"
 
-# Flatten the image and read /usr/lib/apk/db/installed out of it.
-db="$(crane export --platform "${platform}" "${ref}" - | tar -xOf - usr/lib/apk/db/installed)"
+# cosign stores attestations under the sha256-<digest>.att tag, one layer each.
+att="$(get "${reg}/manifests/sha256-${platform_digest#sha256:}.att")"
+layer() { jq -c --arg t "$1" '.layers[] | select(.annotations.predicateType == $t)' <<<"${att}"; }
+predicate() { get "${reg}/blobs/$(jq -r .digest <<<"$1")" | jq -r .payload | base64 -d | jq -c .predicate; }
+# Rekor entry and Fulcio signing identity, from cosign's layer annotations.
+rekor() { jq -c '.annotations["dev.sigstore.cosign/bundle"] | fromjson | .Payload | {log_index: .logIndex, integrated_time: (.integratedTime | todate)}' <<<"$1"; }
+identity() {
+  jq -r '.annotations["dev.sigstore.cosign/certificate"]' <<<"$1" | sed '/-----/d' | base64 -d \
+    | tr -c '[:print:]' '\n' | grep -oE 'https://issuer\.enforce\.dev/[0-9a-f]{40}/[0-9a-f]{16}' | head -1
+}
 
-# One JSON object per installed package: name, version, provides.
-packages="$(awk '
-  /^P:/ { name = substr($0, 3) }
-  /^V:/ { version = substr($0, 3) }
-  /^p:/ { provides = substr($0, 3) }
-  /^$/  { if (name != "") printf "%s\t%s\t%s\n", name, version, provides; name = version = provides = "" }
-  END   { if (name != "") printf "%s\t%s\t%s\n", name, version, provides }
-' <<<"${db}" | jq -R -s -c 'split("\n") | map(select(. != "") | split("\t") | {name: .[0], version: .[1], provides: (.[2] | split(" "))})')"
+tmp="$(mktemp -d)"
+trap 'rm -rf "${tmp}"' EXIT
 
-# The main package label can name the package itself (tomcat-10.1-openjdk-11)
-# or a stream it provides (nginx-1.31 → nginx-mainline, which provides nginx).
+sbom_layer="$(layer https://spdx.dev/Document)"
+prov_layer="$(layer https://slsa.dev/provenance/v1)"
+# Large SBOMs (tomcat: ~1 MB) overflow argv, so hand them to jq as files.
+predicate "${sbom_layer}" > "${tmp}/sbom.json"
+predicate "${prov_layer}" > "${tmp}/prov.json"
+
 jq -n \
   --arg image "${image}" \
-  --arg platform "${platform}" \
-  --arg main "${main_label}" \
-  --argjson labels "${labels}" \
-  --argjson pkgs "${packages}" '
-  def provides($n): any(.provides[]; startswith($n + "="));
-  ($main | sub("-[0-9][0-9.]*$"; "")) as $base
+  --arg platform "linux/${arch}" \
+  --arg platform_digest "${platform_digest}" \
+  --slurpfile sbom "${tmp}/sbom.json" \
+  --slurpfile prov "${tmp}/prov.json" \
+  --argjson sbom_rekor "$(rekor "${sbom_layer}")" \
+  --argjson prov_rekor "$(rekor "${prov_layer}")" \
+  --arg identity "$(identity "${prov_layer}")" '
+  $sbom[0] as $sbom | $prov[0] as $prov |
+  # apk packages only (the SBOM also lists each package source), one per name.
+  [ $sbom.packages[]
+    | select(any(.externalRefs[]?; .referenceType == "purl" and (.referenceLocator | startswith("pkg:apk/"))))
+    | {name, version: .versionInfo} ] | unique_by(.name) as $pkgs
+  | $prov.buildDefinition.externalParameters["image-configuration"] as $cfg
+  # The main-package label names the package (tomcat-10.1-openjdk-11) or the
+  # stream it provides (nginx-1.31 → nginx-mainline): try exact, then the
+  # shortest package named after the stream.
+  | ($cfg.annotations["dev.chainguard.package.main"] // "") as $main
+  | ($main | sub("-[0-9][0-9.]*$"; "")) as $base
   | ([$pkgs[] | select(.name == $main)]
-     + [$pkgs[] | select(provides($main))]
-     + [$pkgs[] | select(.name == $base or provides($base))])[0] as $m
+     + ([$pkgs[] | select(.name == $base or (.name | startswith($base + "-")))] | sort_by(.name | length)))[0] as $m
   | {
       image: $image,
       platform: $platform,
-      created: ($labels."org.opencontainers.image.created" // null),
-      main_package: (if $m then {name: $m.name, version: $m.version} else null end),
+      platform_digest: $platform_digest,
+      created: $sbom.creationInfo.created,
+      main_package: $m,
       package_count: ($pkgs | length),
-      packages: ($pkgs | map({name, version}) | sort_by(.name))
-    }' > "${out_dir}/image-info.json"
+      packages: $pkgs,
+      shells: [$pkgs[] | select(.name | IN("bash", "busybox", "dash", "toybox", "zsh", "mksh", "yash")) | .name],
+      run_as: $cfg.accounts["run-as"],
+      entrypoint: $cfg.entrypoint.command,
+      provenance: {
+        builder: $prov.runDetails.builder.id,
+        build_type: $prov.buildDefinition.buildType,
+        apko_version: $prov.runDetails.builder.version.apko,
+        finished_on: $prov.runDetails.metadata.finishedOn,
+        signing_identity: $identity,
+        rekor: $prov_rekor
+      },
+      sbom: {
+        format: "SPDX",
+        creators: $sbom.creationInfo.creators,
+        rekor: $sbom_rekor
+      }
+    }' > "${out}"
 
-jq -r '"\(.image | sub("@.*"; "")): \(.main_package.name // "?") \(.main_package.version // "?"), \(.package_count) packages"' \
-  "${out_dir}/image-info.json"
+jq -r '"\(.image | sub("@.*"; "")): \(.main_package.name // "?") \(.main_package.version // "?"), \(.package_count) packages, shells: \(.shells | join(",") | if . == "" then "none" else . end)"' "${out}"

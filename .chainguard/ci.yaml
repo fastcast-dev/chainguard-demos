@@ -14,7 +14,6 @@ environment:
     - actionlint
     - bash
     - busybox
-    - jq
     - yamllint
     - yq
     - zizmor
@@ -44,8 +43,3 @@ checks:
     description: StatefulSets keep the nonroot / read-only / no-caps baseline.
     timeout: 120s
     script: scripts/check-k8s-hardening.sh
-
-  image-info:
-    description: image-info.json on each page matches the digest that's deployed.
-    timeout: 120s
-    script: scripts/check-image-info.sh

@@ -12,6 +12,8 @@
       --lav: #ffb2c9;
       --mint: #7ff0c9;
       --text: #ffeaef;
+      --line: #6e2038;
+      --accent: var(--amber);
     }
     * { box-sizing: border-box; }
     body {
@@ -68,23 +70,49 @@
     }
     .stat .num { font-size: 2rem; color: var(--amber); font-weight: bold; }
     .stat .label { font-size: 0.75rem; color: var(--lav); }
-    .image-info {
+    /* --- evidence sections, shared by both demo pages --- */
+    h2 { font-size: 1.1rem; margin: 2.5rem 0 0.25rem; color: var(--text); }
+    .sub { color: var(--lav); font-size: 0.8rem; margin: 0 0 1rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: left; }
+    .card {
       background: var(--panel);
-      border: 1px solid #6e2038;
+      border: 1px solid var(--line);
       border-radius: 12px;
       padding: 1rem 1.25rem;
-      margin: 1rem 0;
-      text-align: left;
       font-size: 0.8rem;
+      line-height: 1.55;
       color: var(--lav);
     }
-    .image-info code { color: var(--mint); word-break: break-all; }
-    .image-info summary { cursor: pointer; color: var(--text); }
-    .image-info ul { columns: 2; padding-left: 1.25rem; margin: 0.75rem 0 0; }
+    .card h3 { margin: 0 0 0.5rem; font-size: 0.9rem; color: var(--accent); }
+    .card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.6rem; }
+    .card dt { color: var(--text); }
+    .card dd { margin: 0; word-break: break-all; }
+    .card a { color: var(--accent); }
+    .card p { margin: 0.4rem 0 0; }
+    .ok { color: var(--mint); font-weight: bold; }
+    .warn { color: var(--amber, #ffc26e); font-weight: bold; }
+    details.packages { margin-top: 0.6rem; }
+    details.packages summary { cursor: pointer; color: var(--text); }
+    details.packages ul { columns: 2; padding-left: 1.1rem; margin: 0.5rem 0 0; font-size: 0.75rem; }
+    .verify {
+      background: #000;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      text-align: left;
+      font-size: 0.75rem;
+      overflow-x: auto;
+      white-space: pre;
+      color: var(--text);
+    }
+    .verify .comment { color: #8a7bb8; }
+    .docs { text-align: left; font-size: 0.8rem; columns: 2; padding-left: 1.1rem; color: var(--lav); }
+    .docs a { color: var(--accent); }
+    .muted { color: #8a7bb8; font-size: 0.75rem; }
     footer { margin-top: 2.5rem; font-size: 0.75rem; color: #b87b8f; }
   </style>
 </head>
-<body>
+<body data-shells-why="Tomcat's entrypoint, catalina.sh, is a shell script, so this image keeps a shell for it. It's still locked down: nonroot, read-only root filesystem, every capability dropped, and the nginx demo next door ships no shell at all.">
   <main>
     <div class="duo">
       <span class="cat" role="img" aria-label="Tomcat">🐈</span>
@@ -94,27 +122,88 @@
     <h1>Hello from <span>Chainguard × Tomcat</span>!</h1>
     <p class="tagline">A cat and an octopus walk into a cluster…</p>
 
-    <div class="joke">
-      <div class="q">Q: How does Linky hug a Tomcat?</div>
-      <div class="a">A: Very carefully — with all eight arms, zero CVEs, and absolutely no shell access.</div>
-    </div>
-
-    <div class="joke">
-      <div class="q">Q: What did the auditor say to this container?</div>
-      <div class="a">A: Nothing. There was nothing to report. 🐈✅</div>
-    </div>
-
     <div class="stats">
       <div class="stat"><div class="num" id="main-version">…</div><div class="label" id="main-label">tomcat version</div></div>
       <div class="stat"><div class="num" id="java-version">…</div><div class="label">java runtime</div></div>
       <div class="stat"><div class="num" id="package-count">…</div><div class="label">packages in the image</div></div>
+      <div class="stat"><div class="num" id="run-as">…</div><div class="label">runs as uid</div></div>
     </div>
 
-    <details class="image-info" id="image-info" hidden>
-      <summary>what's inside: <code id="image-ref"></code></summary>
-      <div>built <span id="image-created"></span> · <span id="image-platform"></span></div>
-      <ul id="package-list"></ul>
-    </details>
+    <div class="joke">
+      <div class="q">Q: How does Linky hug a Tomcat?</div>
+      <div class="a">A: Very carefully — with all eight arms, a signed SBOM, and a read-only root filesystem.</div>
+    </div>
+
+    <div class="joke">
+      <div class="q">Q: What did the auditor say to this container?</div>
+      <div class="a">A: "Show me your provenance." So it did — it's signed and in a public transparency log. 🐈✅</div>
+    </div>
+
+    <h2>How do we know what's in this image?</h2>
+    <p class="sub">Everything below is read at deploy time from Chainguard's signed attestations
+      for <code id="image-ref">this image</code> (<span id="image-platform">linux/amd64</span>) —
+      nothing on this page is typed in by hand.</p>
+    <p class="muted" id="info-error" hidden>Image attestations weren't available when this page
+      was deployed, so the live values show "?".</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>🧾 Provenance (SLSA)</h3>
+        <dl>
+          <dt>built by</dt><dd id="prov-builder">…</dd>
+          <dt>tooling</dt><dd>apko <span id="prov-apko">…</span></dd>
+          <dt>built at</dt><dd id="prov-finished">…</dd>
+          <dt>entrypoint</dt><dd id="prov-entrypoint">…</dd>
+          <dt>signed by</dt><dd id="prov-identity">…</dd>
+          <dt>Rekor</dt><dd><a id="prov-rekor" href="https://search.sigstore.dev/">…</a></dd>
+        </dl>
+        <p>A signed, tamper-evident record of <em>how</em> the image was assembled — by which
+          builder, from which packages — published to the public Sigstore transparency log.</p>
+      </div>
+
+      <div class="card">
+        <h3>📦 SBOM (SPDX)</h3>
+        <dl>
+          <dt>packages</dt><dd id="sbom-count">…</dd>
+          <dt>generated</dt><dd id="sbom-created">…</dd>
+          <dt>by</dt><dd id="sbom-creators">…</dd>
+          <dt>Rekor</dt><dd><a id="sbom-rekor" href="https://search.sigstore.dev/">…</a></dd>
+        </dl>
+        <p>Written by apko at build time, not reverse-engineered by a scanner afterwards, so it
+          lists exactly what went in.</p>
+        <details class="packages">
+          <summary>every package in the image</summary>
+          <ul id="package-list"></ul>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3>🐚 Shells &amp; package managers</h3>
+        <dl>
+          <dt>shells</dt><dd id="shell-list">…</dd>
+          <dt>package mgr</dt><dd id="pkgmgr">…</dd>
+          <dt>runs as</dt><dd id="run-as-detail">…</dd>
+        </dl>
+        <p id="shell-verdict">…</p>
+      </div>
+    </div>
+
+    <h2>Don't trust this page — verify it</h2>
+    <p class="sub">The same attestations, checked against Sigstore with
+      <a href="https://edu.chainguard.dev/open-source/sigstore/cosign/an-introduction-to-cosign/" style="color: var(--accent)">cosign</a>:</p>
+    <div class="verify" id="verify">…</div>
+
+    <h2>Learn more</h2>
+    <ul class="docs">
+      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/how-to-use/retrieve-image-sboms/">Retrieve a Chainguard image's SBOM</a></li>
+      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/how-to-use/verifying-chainguard-images-and-metadata-signatures-with-cosign/">Verify image signatures &amp; attestations</a></li>
+      <li><a id="directory-provenance" href="https://images.chainguard.dev/">This image's provenance &amp; SBOM in the Directory</a></li>
+      <li><a href="https://edu.chainguard.dev/open-source/slsa/what-is-slsa/">What is SLSA?</a></li>
+      <li><a href="https://edu.chainguard.dev/open-source/sbom/what-is-an-sbom/">What is an SBOM?</a></li>
+      <li><a href="https://edu.chainguard.dev/open-source/sigstore/rekor/an-introduction-to-rekor/">Rekor, the transparency log</a></li>
+      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/about/getting-started-distroless/">Getting started with distroless</a></li>
+      <li><a href="https://edu.chainguard.dev/chainguard/chainguard-images/troubleshooting/debugging-distroless-images/">Debugging an image with no shell</a></li>
+    </ul>
 
     <div class="links">
       <a href="https://images.chainguard.dev/directory/image/tomcat/versions">Tomcat Image</a>
@@ -128,36 +217,90 @@
     </footer>
   </main>
   <script>
-    // image-info.json is generated from the deployed image's own apk
-    // database (scripts/image-info.sh) and kept in step with its digest.
+    // image-info.json is generated at deploy time (scripts/image-info.sh) from
+    // the signed SPDX SBOM and SLSA provenance of the exact digest deployed.
+    const SHELLS_WHY = document.body.dataset.shellsWhy || "";
+    const $ = (id) => document.getElementById(id);
+    const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+    const ver = (v) => v.replace(/-r\d+$/, "");
+    const when = (t) => (t ? new Date(t).toUTCString().replace(" GMT", " UTC") : "unknown");
+    const rekor = (id, entry) => {
+      const a = $(id);
+      a.textContent = "log index " + entry.log_index;
+      a.href = "https://search.sigstore.dev/?logIndex=" + entry.log_index;
+    };
+
     fetch("image-info.json", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((info) => {
-        const $ = (id) => document.getElementById(id);
-        const pkgs = info.packages || [];
-        const ver = (p) => p.version.replace(/-r\d+$/, "");
-        if (info.main_package) {
-          $("main-version").textContent = ver(info.main_package);
-          $("main-label").textContent = info.main_package.name + " version";
-        }
-        $("package-count").textContent = info.package_count;
+        if (info.error) throw new Error(info.error);
+        const pkgs = info.packages;
+        const prov = info.provenance;
+        const repo = info.image.replace(/^[^/]+\/(?:cgr\/)?/, "").replace(/[:@].*$/, "");
+
+        set("main-version", ver(info.main_package.version));
+        set("main-label", info.main_package.name + " version");
+        set("package-count", info.package_count);
+        set("shell-count", info.shells.length);
+        set("run-as", info.run_as);
         const jre = pkgs.find((p) => /^openjdk-\d+-jre$/.test(p.name));
-        if (jre && $("java-version")) $("java-version").textContent = ver(jre);
-        $("image-ref").textContent = info.image.replace(/@sha256:(\w{12})\w+$/, "@sha256:$1…");
-        $("image-created").textContent = info.created ? new Date(info.created).toUTCString() : "unknown";
-        $("image-platform").textContent = info.platform;
+        if (jre) set("java-version", ver(jre.version));
+
+        set("image-ref", info.image.replace(/@sha256:(\w{12})\w+$/, "@sha256:$1…"));
+        set("image-platform", info.platform);
+
+        set("prov-builder", prov.builder);
+        set("prov-apko", prov.apko_version);
+        set("prov-finished", when(prov.finished_on));
+        set("prov-entrypoint", info.entrypoint);
+        set("prov-identity", prov.signing_identity);
+        rekor("prov-rekor", prov.rekor);
+
+        set("sbom-count", info.package_count + " apk packages");
+        set("sbom-created", when(info.created));
+        set("sbom-creators", info.sbom.creators.join(", "));
+        rekor("sbom-rekor", info.sbom.rekor);
         for (const p of pkgs) {
           const li = document.createElement("li");
           li.textContent = p.name + " " + p.version;
           $("package-list").appendChild(li);
         }
-        $("image-info").hidden = false;
+
+        const apk = pkgs.some((p) => p.name === "apk-tools");
+        set("shell-list", info.shells.length ? info.shells.join(", ") : "none");
+        set("pkgmgr", apk ? "apk-tools" : "none");
+        set("run-as-detail", "uid " + info.run_as + (info.run_as !== "0" ? " (nonroot)" : " (root!)"));
+        const verdict = $("shell-verdict");
+        const badge = document.createElement("span");
+        if (info.shells.length === 0) {
+          badge.className = "ok";
+          badge.textContent = "No shell.";
+          verdict.replaceChildren(badge, " None of the " + info.package_count +
+            " packages in the SBOM is a shell, so there's nothing for an attacker to drop into, and nothing for `kubectl exec … sh` to run. ");
+        } else {
+          badge.className = "warn";
+          badge.textContent = "Ships " + info.shells.join(" + ") + ".";
+          verdict.replaceChildren(badge, " " + SHELLS_WHY + " ");
+        }
+        if (!apk) verdict.append("No package manager either: nothing new can be installed at runtime.");
+
+        $("directory-provenance").href = "https://images.chainguard.dev/directory/image/" + repo + "/provenance";
+        // Attestations are per architecture: verify the platform image, not the index.
+        const ref = info.image.replace(/@.*$/, "@" + info.platform_digest);
+        const flags = "--certificate-oidc-issuer=https://issuer.enforce.dev \\\n    --certificate-identity=" + prov.signing_identity + " \\\n    ";
+        $("verify").textContent = (
+          "# " + info.platform + " image; SBOM and provenance are attested per architecture\n\n" +
+          "# SLSA provenance: who built it, how\n" +
+          "cosign verify-attestation --type slsaprovenance1 \\\n    " + flags + ref + "\n\n" +
+          "# SPDX SBOM: what's inside (list the apk packages)\n" +
+          "cosign verify-attestation --type spdxjson \\\n    " + flags + ref + " \\\n" +
+          "  | jq -r '.payload | @base64d | fromjson | .predicate.packages[]\n" +
+          "      | select(any(.externalRefs[]?; .referenceLocator | startswith(\"pkg:apk/\"))) | .name' | sort -u"
+        );
       })
       .catch(() => {
-        for (const id of ["main-version", "java-version", "package-count"]) {
-          const el = document.getElementById(id);
-          if (el) el.textContent = "?";
-        }
+        $("info-error").hidden = false;
+        for (const id of ["main-version", "java-version", "package-count", "shell-count", "run-as"]) set(id, "?");
       });
   </script>
 </body>

@@ -8,15 +8,14 @@ dev and prod k3s clusters by a hardened GitHub Actions pipeline.
 chainguard-demos/
 ├── nginx-demo/            # Linky's meme page on distroless nginx
 │   ├── html/              # served content (published as a ConfigMap)
-│   │   └── image-info.json  # nginx version + package list, generated from the image
+│   │   └── image-info.json  # generated at deploy from the image SBOM + provenance
 │   ├── k8s/               # StatefulSet + Service (public namespace)
 │   └── Dockerfile         # local-only demo build
 ├── tomcat-demo/           # Chainguard × Tomcat page
 │   ├── webapp/            # ROOT webapp content (published as a ConfigMap)
-│   │   └── image-info.json  # tomcat/Java versions + package list
 │   ├── k8s/
 │   └── Dockerfile
-├── scripts/               # image-info generator + the policy checks
+├── scripts/               # SBOM/provenance reader + the policy checks
 ├── .chainguard/
 │   ├── ci.yaml            # Chainguard Checks: the presubmit gate
 │   └── actions.yaml       # Guardener: hardened-actions migration PRs
@@ -60,8 +59,8 @@ Hardening checklist:
 - kubeconfig built in `RUNNER_TEMP` from the environment-scoped token, never written
   into the workspace
 - single `concurrency` group so deploys never interleave; `timeout-minutes` on the job
-- the images themselves: distroless, nonroot, read-only rootfs, all capabilities
-  dropped, `seccompProfile: RuntimeDefault`
+- the images themselves: minimal Chainguard images (nginx ships no shell), nonroot,
+  read-only rootfs, all capabilities dropped, `seccompProfile: RuntimeDefault`
 
 ## Digest pinning and automated patching
 
@@ -73,13 +72,10 @@ Chainguard to prod with no human in the loop (beyond the `prod` environment's re
    digest lookups are mapped to the upstream catalog (`fastcast-dev.self-hosted.io/cgr/`
    → `cgr.dev/max.bern/`) and authenticated keylessly via a Chainguard assumable
    identity (`CHAINGUARD_IDENTITY` variable + OIDC — no registry credentials in GitHub).
-2. The same job regenerates each page's `image-info.json` from the new images
-   (`scripts/image-info.sh`) and pushes it onto the PR, so the version and package
-   count on the site always describe the digest that's deployed.
-3. It enables **auto-merge** on the PR. GitHub merges it once the required
+2. It enables **auto-merge** on the PR. GitHub merges it once the required
    [Chainguard Checks](#chainguard-checks) pass, never before. If `main` has no required
    checks the job fails rather than merging unchecked.
-4. **reconcile-deploy** waits for the merge and dispatches `deploy.yml`. A merge made
+3. **reconcile-deploy** waits for the merge and dispatches `deploy.yml`. A merge made
    with `GITHUB_TOKEN` fires no `push` event, so this is what deploys it. It also runs
    every hour, so anything else merged that way still ships within the hour.
 
@@ -98,7 +94,6 @@ plane, hermetically (no network):
 | `yamllint` | every YAML file lints clean (`.yamllint.yaml`) |
 | `pins` | every action pinned to a commit SHA, every image to a digest |
 | `k8s-hardening` | StatefulSets stay nonroot, read-only rootfs, no caps, RuntimeDefault seccomp, memory-limited |
-| `image-info` | each page's `image-info.json` matches the digest its StatefulSet runs |
 
 ```sh
 chainctl checks validate          # lint the config offline
@@ -106,9 +101,29 @@ run-ci [CHECK]                    # run the checks on the working tree (develop 
 chainctl checks status owner/repo#N --watch
 ```
 
-If you bump a digest by hand, regenerate the page data (needs `crane`; the mirror needs
-no auth): `scripts/image-info.sh nginx-demo nginx-demo/html` and
-`scripts/image-info.sh tomcat-demo tomcat-demo/webapp`.
+## Provenance, SBOMs and shells on the pages
+
+Each page explains how we know what's in its image, using Chainguard's own signed
+attestations rather than claims typed into the HTML. At deploy time,
+`scripts/image-info.sh` (only `curl`, `jq`, `base64`) reads them from the mirror for the
+exact digest the StatefulSet names, and writes `image-info.json` into the page's
+ConfigMap:
+
+- **SPDX SBOM**: the main package version (plus Java for tomcat), every apk package,
+  and whether any of them is a shell or a package manager. nginx has neither; tomcat
+  keeps `bash` + `busybox` because its entrypoint, `catalina.sh`, is a shell script, and
+  the page says so.
+- **SLSA provenance**: builder, apko version, build time, entrypoint, run-as user, and
+  the Sigstore signing identity.
+- **Rekor** log entries for both, linked to `search.sigstore.dev`, and the exact
+  `cosign verify-attestation` commands to check them yourself.
+- Links to the Chainguard docs on SBOMs, signature verification, SLSA, Rekor and
+  distroless.
+
+The data is cosmetic: if the attestations can't be read, the deploy warns and carries on,
+and the page shows "?". To preview locally:
+`scripts/image-info.sh "$(sed -n 's/^ *image: *//p' nginx-demo/k8s/statefulset.yaml)" nginx-demo/html/image-info.json`
+(the generated file is git-ignored).
 
 ## One-time setup
 
