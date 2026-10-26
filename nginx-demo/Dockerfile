@@ -6,7 +6,7 @@
 # The Chainguard nginx image (via the internal mirror, no auth) is distroless:
 # no shell, no package manager, runs as the nonroot `nginx` user, and listens
 # on unprivileged 8080.
-FROM fastcast-dev.self-hosted.io/cgr/nginx:1.31@sha256:770fece671995741f59b4e88d9e36d4141c93e30895ae6e8d70402fcaf1b6cff
+FROM fastcast-dev.self-hosted.io/cgr/nginx:1.31@sha256:f92a6d9a2129bb7320511f41516179bed63f3f66719b0dbad013b84c74c524bb
 
 COPY html/ /usr/share/nginx/html/
 
