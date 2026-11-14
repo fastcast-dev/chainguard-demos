@@ -27,7 +27,7 @@ spec:
       containers:
         - name: nginx
           # minor-stream (1.31.x); digest kept current by digestabot (hourly)
-          image: fastcast-dev.self-hosted.io/cgr/nginx:1.31@sha256:983d4fa7433879fe7c2bd85dbcd181f6df8b9ad632b0ef7050c602db7c755090
+          image: fastcast-dev.self-hosted.io/cgr/nginx:1.31@sha256:cb103e70584efed7a88b14093bd4cffc635d81c330766f389b53ac17bda247c9
           ports:
             - name: http
               containerPort: 8080
